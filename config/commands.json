@@ -267,6 +267,36 @@
     "sortOrder": 16
   },
   {
+    "name": "List Config Files",
+    "slug": "list-config-files",
+    "description": "List the configuration files on the holorouter /config folder",
+    "template": "Get-ChildItem '/holodeck-runtime/config/' | Format-Table Name, Length, LastWriteTime -AutoSize",
+    "parameters": [],
+    "category": "maintenance",
+    "requiredRole": "user",
+    "sortOrder": 17
+  },
+  {
+    "name": "List State Files",
+    "slug": "list-state-files",
+    "description": "List the state files on the holorouter /state folder",
+    "template": "Get-ChildItem '/holodeck-runtime/state/' | Format-Table Name, Length, LastWriteTime -AutoSize",
+    "parameters": [],
+    "category": "maintenance",
+    "requiredRole": "user",
+    "sortOrder": 18
+  },
+  {
+    "name": "List Output Files",
+    "slug": "list-output-files",
+    "description": "List the output files on the holorouter /output folder",
+    "template": "Get-ChildItem '/holodeck-runtime/output/' | Format-Table Name, Length, LastWriteTime -AutoSize",
+    "parameters": [],
+    "category": "maintenance",
+    "requiredRole": "user",
+    "sortOrder": 19
+  },
+  {
     "name": "Delete Config File",
     "slug": "delete-config-file",
     "description": "Remove a configuration JSON file from the holorouter (destructive)",
@@ -283,12 +313,31 @@
     ],
     "category": "maintenance",
     "requiredRole": "labadmin",
-    "sortOrder": 17
+    "sortOrder": 20
   },
   {
     "name": "Delete Instance State",
     "slug": "delete-instance-state",
-    "description": "Remove the output/state file for an instance from the holorouter (destructive)",
+    "description": "Remove a state file for an instance from the holorouter (destructive)",
+    "template": "Get-Item '/holodeck-runtime/state/{{instanceId}}.json'; Remove-Item '/holodeck-runtime/state/{{instanceId}}.json' -Force; Write-Output 'Deleted /holodeck-runtime/state/{{instanceId}}.json'",
+    "parameters": [
+      {
+        "name": "instanceId",
+        "label": "Instance ID",
+        "type": "string",
+        "required": true,
+        "validation": "^[a-zA-Z0-9._-]+$",
+        "placeholder": "Auto-filled from active config"
+      }
+    ],
+    "category": "maintenance",
+    "requiredRole": "labadmin",
+    "sortOrder": 21
+  },
+  {
+    "name": "Delete Output File",
+    "slug": "delete-output-file",
+    "description": "Remove an output file for an instance from the holorouter (destructive)",
     "template": "Get-Item '/holodeck-runtime/output/{{instanceId}}.json'; Remove-Item '/holodeck-runtime/output/{{instanceId}}.json' -Force; Write-Output 'Deleted /holodeck-runtime/output/{{instanceId}}.json'",
     "parameters": [
       {
@@ -302,26 +351,6 @@
     ],
     "category": "maintenance",
     "requiredRole": "labadmin",
-    "sortOrder": 18
-  },
-  {
-    "name": "List Config Files",
-    "slug": "list-config-files",
-    "description": "List the configuration files on the holorouter /config folder",
-    "template": "Get-ChildItem '/holodeck-runtime/config/' | Format-Table Name, Length, LastWriteTime -AutoSize",
-    "parameters": [],
-    "category": "maintenance",
-    "requiredRole": "user",
-    "sortOrder": 19
-  },
-  {
-    "name": "List State Files",
-    "slug": "list-state-files",
-    "description": "List the state files on the holorouter /state folder",
-    "template": "Get-ChildItem '/holodeck-runtime/output/' | Format-Table Name, Length, LastWriteTime -AutoSize",
-    "parameters": [],
-    "category": "maintenance",
-    "requiredRole": "user",
-    "sortOrder": 20
+    "sortOrder": 22
   }
 ]

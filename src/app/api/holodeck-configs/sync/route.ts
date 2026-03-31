@@ -36,9 +36,17 @@ export async function POST(request: Request) {
     }
 
     if (remoteConfigs.length === 0) {
+      // Clean up all local cached configs since holorouter has none
+      const staleCount = await prisma.holoDeckConfig.count();
+      if (staleCount > 0) {
+        await prisma.holoDeckConfig.deleteMany();
+      }
       return NextResponse.json({
-        message: "No configs found on holorouter",
+        message: staleCount > 0
+          ? `No configs found on holorouter. Removed ${staleCount} stale cached config(s).`
+          : "No configs found on holorouter",
         synced: 0,
+        removed: staleCount,
         configs: [],
       });
     }

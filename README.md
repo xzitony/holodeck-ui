@@ -1,8 +1,6 @@
 # Holodeck UI
 
-Web-based management interface for VMware VCF 9 Holodeck deployments. Provides a guided deployment wizard, Day 2 operations, PowerShell command execution, reservation scheduling, and user management — all driven through SSH to a holorouter VM.
-
-If you run a Holodeck lab environment and want a web UI instead of managing everything through PowerShell on the holorouter directly, this is for you.
+Web-based management interface for VMware VCF 9 Holodeck deployments. Provides a guided deployment wizard, Day 2 operations, PowerShell command execution, reservation scheduling, and user management — all driven through SSH to a holorouter VM.  The holorouter remains the "main source of truth" other than some caching of config files for loading commands faster and reducing ssh calls, no data is saved to the UI appliance.
 
 ## Tech Stack
 
@@ -17,17 +15,18 @@ If you run a Holodeck lab environment and want a web UI instead of managing ever
 - **Deployment**: Docker + Caddy reverse proxy
 
 ## Features
-
-- **Deploy Wizard** — Multi-step form for launching VCF deployments (VVF, Management, Full Stack, Dual Site)
-- **Day 2 Operations** — Add clusters, ESXi nodes, or VCF Automation to existing deployments
-- **Live Output Monitoring** — Real-time tmux output capture with auto-scroll
-- **Command Runner** — Execute PowerShell commands with parameter forms, SSE streaming output
+- **User Dashboard** — Quick access to deployed components based on instance deployment state(s)
 - **Reservation System** — Time slot booking with overlap warnings, maintenance windows, customer demo flags
+- **Config Management** — Create, update, and track multiple configurations on the holorouter at once
+- **Instance Management** — Multi-step form for launching VCF deployments (VVF, Management, Full Stack, Dual Site)
+- **Day 2 Operations** — Add clusters, ESXi nodes, or VCF Automation to existing deployments
+- **Live Output Monitoring** — Real-time background tmux with capture and auto-scroll for long running operations
 - **Role-Based Access** — Three roles: `user`, `labadmin`, `superadmin` with granular permissions
 - **Global Configuration** — Centralized SSH, ESXi, depot, and UI customization settings
 - **Environment Links** — Dynamic link dashboard with capability-aware conditional visibility
 - **Email Notifications** — Reservation confirmations, deployment alerts, and reminders via SMTP or Resend API
 - **Audit Logging** — Full history of logins, commands, deployments, and reservations
+- **Advanced Troubleshooting** — Execute raw PowerShell commands with parameter forms, SSE streaming output
 - **API Documentation** — Built-in Swagger UI at `/dashboard/developer`
 
 ## Screenshots
@@ -67,7 +66,7 @@ The app runs at `http://localhost:3000`. Default login:
 
 ```bash
 # Set required environment variables
-export JWT_SECRET="your-secret-key"
+export JWT_SECRET="your-secret-key-this-needs-to-be-32chars"
 export DOMAIN="holodeck.example.com"  # or localhost for local testing
 
 # Build and run
@@ -80,6 +79,11 @@ docker compose up --build
 The container runs behind a Caddy reverse proxy on ports 80/443.
 
 ### Production (Portainer / Docker Compose)
+
+Basic deployment should be possible using:
+```
+docker pull ghcr.io/xzitony/holodeck-ui:latest
+```
 
 A standalone `docker-compose.prod.yml` is provided for production deployments. It pulls a prebuilt image from GitHub Container Registry:
 

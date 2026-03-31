@@ -43,6 +43,7 @@ const confirmRequired = new Set([
   "remove-holodeck-instance",
   "delete-config-file",
   "delete-instance-state",
+  "delete-output-file",
 ]);
 
 // Commands that don't need an imported config context
@@ -54,8 +55,10 @@ const noConfigRequired = new Set([
   "remove-holodeck-dnsconfig",
   "delete-config-file",
   "delete-instance-state",
+  "delete-output-file",
   "list-config-files",
   "list-state-files",
+  "list-output-files",
 ]);
 
 interface HoloDeckConfig {
@@ -396,11 +399,15 @@ export default function CommandsPage() {
                     onClick={() => handleSelect(cmd)}
                     className={`w-full text-left p-3 rounded-md text-sm transition-colors ${
                       selected?.id === cmd.id
-                        ? "bg-primary/10 border border-primary/30"
-                        : "bg-card border border-border hover:border-primary/30"
+                        ? confirmRequired.has(cmd.slug)
+                          ? "bg-red-500/10 border border-red-500/30"
+                          : "bg-primary/10 border border-primary/30"
+                        : confirmRequired.has(cmd.slug)
+                          ? "bg-card border border-red-500/20 hover:border-red-500/40"
+                          : "bg-card border border-border hover:border-primary/30"
                     }`}
                   >
-                    <div className="font-medium">{cmd.name}</div>
+                    <div className={`font-medium ${confirmRequired.has(cmd.slug) ? "text-red-400" : ""}`}>{cmd.name}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {cmd.description}
                     </div>

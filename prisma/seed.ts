@@ -76,7 +76,7 @@ async function main() {
     { key: "default_vsan_mode", value: "ESA", description: "Default vSAN mode (ESA/OSA)", sensitive: false },
     { key: "default_dns_domain", value: "vcf.lab", description: "Default DNS domain for deployments", sensitive: false },
     { key: "depot_ssh_port", value: "22", description: "Depot appliance SSH port (uses Offline Depot IP as host)", sensitive: false },
-    { key: "depot_ssh_username", value: "root", description: "Depot appliance SSH username", sensitive: false },
+    { key: "depot_ssh_username", value: "admin", description: "Depot appliance SSH username", sensitive: false },
     { key: "depot_ssh_password", value: "", description: "Depot appliance SSH password", sensitive: true },
     { key: "ui_app_title", value: "Holodeck Router UI", description: "Application title in sidebar", sensitive: false },
     { key: "ui_app_subtitle", value: "VCF Management Portal", description: "Subtitle below app title", sensitive: false },

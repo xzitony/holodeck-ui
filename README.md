@@ -1,6 +1,13 @@
 # Holodeck UI
 
-Web-based management interface for VMware VCF 9 Holodeck deployments. Provides a guided deployment wizard, Day 2 operations, PowerShell command execution, reservation scheduling, and user management — all driven through SSH to a holorouter VM.  The holorouter remains the "main source of truth" other than some caching of config files for loading commands faster and reducing ssh calls, no data is saved to the UI appliance.
+Holodeck UI is a web-based frontend management interface for VMware VCF 9 Holodeck. Provides a guided deployment wizard, Day 2 operations, PowerShell command execution, reservation scheduling, and user management — all driven through SSH to a holorouter VM.  The holorouter remains the "main source of truth" other than some caching of config files for loading commands faster and reducing ssh calls, no data is saved to the UI appliance.
+
+This project is not associated with, endorsed by, or supported by Broadcom, VMware by Broadcom, or any of its other subsidiaries.
+
+## Prerequisites
+
+You need a running and configured Holorouter instance, and optionally and Offline Depot Appliance (ODA)
+Details about the Holodeck can be found at: [VMware by Broadcom - Holodeck Documentation](https://vmware.github.io/Holodeck/)
 
 ## Tech Stack
 

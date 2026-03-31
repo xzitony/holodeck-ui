@@ -64,6 +64,11 @@ The app runs at `http://localhost:3000`. Default login:
 
 ### Docker
 
+Basic deployment should be possible using:
+```
+docker pull ghcr.io/xzitony/holodeck-ui:latest
+```
+
 ```bash
 # Set required environment variables
 export JWT_SECRET="your-secret-key-this-needs-to-be-32chars"
@@ -78,12 +83,7 @@ docker compose up --build
 
 The container runs behind a Caddy reverse proxy on ports 80/443.
 
-### Production (Portainer / Docker Compose)
-
-Basic deployment should be possible using:
-```
-docker pull ghcr.io/xzitony/holodeck-ui:latest
-```
+### Production (Docker Compose, Portainer Stack, etc.)
 
 A standalone `docker-compose.prod.yml` is provided for production deployments. It pulls a prebuilt image from GitHub Container Registry:
 

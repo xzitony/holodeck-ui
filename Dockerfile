@@ -24,6 +24,18 @@ RUN npx tsc --esModuleInterop --module commonjs --target es2020 --outDir prisma/
     && mv prisma/compiled/prisma/seed.js prisma/seed.js && rm -rf prisma/compiled
 RUN npm run build
 
+# Prune node_modules to runtime-only deps (removes ~500MB of build tooling)
+RUN rm -rf node_modules/next node_modules/@next \
+    node_modules/typescript node_modules/@typescript-eslint \
+    node_modules/eslint node_modules/eslint-* node_modules/@eslint node_modules/@eslint-community \
+    node_modules/@swc node_modules/esbuild node_modules/@esbuild \
+    node_modules/@tailwindcss node_modules/tailwindcss node_modules/lightningcss node_modules/lightningcss-* \
+    node_modules/sharp node_modules/@img \
+    node_modules/postcss node_modules/postcss-* \
+    node_modules/react node_modules/react-dom node_modules/scheduler \
+    node_modules/swagger-ui-react node_modules/swagger-client \
+    node_modules/@types node_modules/tsx
+
 # Stage 3: Production runner
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -40,8 +52,7 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Copy full node_modules from builder (needed for Prisma CLI migrations)
-# The standalone server.js has its deps bundled, so this doesn't conflict
+# Copy pruned node_modules (Prisma CLI, email, and other runtime deps)
 COPY --from=builder /app/node_modules ./node_modules
 
 # Copy prisma schema + migrations + seed

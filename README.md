@@ -11,6 +11,7 @@ If you run a Holodeck lab environment and want a web UI instead of managing ever
 - **Auth**: JWT (httpOnly cookies), bcrypt password hashing
 - **SSH**: `ssh2` library for holorouter communication
 - **Background Jobs**: tmux sessions for long-running operations
+- **Email**: SMTP or Resend API (configurable per environment)
 - **Styling**: Tailwind CSS 4 with dark theme
 - **API Docs**: Swagger UI (OpenAPI 3.0)
 - **Deployment**: Docker + Caddy reverse proxy
@@ -25,8 +26,19 @@ If you run a Holodeck lab environment and want a web UI instead of managing ever
 - **Role-Based Access** — Three roles: `user`, `labadmin`, `superadmin` with granular permissions
 - **Global Configuration** — Centralized SSH, ESXi, depot, and UI customization settings
 - **Environment Links** — Dynamic link dashboard with capability-aware conditional visibility
+- **Email Notifications** — Reservation confirmations, deployment alerts, and reminders via SMTP or Resend API
 - **Audit Logging** — Full history of logins, commands, deployments, and reservations
 - **API Documentation** — Built-in Swagger UI at `/dashboard/developer`
+
+## Screenshots
+
+| Dashboard | Deploy Wizard |
+|:-:|:-:|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Deploy Wizard](docs/screenshots/instance_mgmt.png) |
+
+| Config Management | Depot Appliance |
+|:-:|:-:|
+| ![Config Management](docs/screenshots/config_mgmt.png) | ![Depot Appliance](docs/screenshots/depot_appliance_mgmt.png) |
 
 ## Quick Start
 
@@ -56,6 +68,7 @@ The app runs at `http://localhost:3000`. Default login:
 ```bash
 # Set required environment variables
 export JWT_SECRET="your-secret-key"
+export DOMAIN="holodeck.example.com"  # or localhost for local testing
 
 # Build and run
 ./build.sh
@@ -76,6 +89,7 @@ curl -O https://raw.githubusercontent.com/xzitony/holodeck-ui/main/docker-compos
 
 # Set required env vars and deploy
 export JWT_SECRET="your-secret-key"
+export DOMAIN="holodeck.example.com"
 docker compose -f docker-compose.prod.yml up -d
 ```
 
@@ -89,7 +103,7 @@ This file is also designed to be pasted directly into a **Portainer Stack** — 
 | `JWT_SECRET` | Secret key for JWT signing | (required) |
 | `DOMAIN` | Domain for Caddy TLS | `localhost` |
 
-SSH and deployment settings are configured through the Global Config page in the UI, not environment variables.
+SSH, deployment, and SMTP email settings are configured through the Global Config page in the UI, not environment variables.
 
 ## Project Structure
 
@@ -102,7 +116,12 @@ src/
       commands/           # Command CRUD, execution (SSE), configs
       deployments/        # Deployment jobs (CRUD, output capture)
       day2/               # Day 2 operations
+      holodeck-configs/   # Config sync, inventory, credentials
       reservations/       # Reservation CRUD, overlap detection
+      instances/          # Running instance queries
+      depot/              # Depot file browser
+      environment-links/  # Environment link CRUD
+      cron/               # Scheduled tasks (reservation reminders)
       users/              # User management
       audit/              # Audit log queries
     dashboard/            # UI pages
@@ -111,20 +130,27 @@ src/
       deployments/        # Job list + live output viewer
       commands/           # Command runner
       reservations/       # Reservation scheduler
+      instances/          # Running instance overview
+      depot/              # Depot file browser
       environment/        # Environment link dashboard
+      history/            # Audit log viewer
       developer/          # Swagger API docs
       admin/              # Config, users, commands, reservations management
   lib/
     ssh.ts                # SSH connection, tmux management, env block builder
     auth.ts               # JWT verification, user extraction
     db.ts                 # Prisma client singleton
+    email.ts              # Email notifications (SMTP / Resend)
+    capabilities.ts       # Feature capability detection
     validators.ts         # Zod schemas, template resolution
     reservation-guard.ts  # Reservation access checks
   components/
     layout/               # Sidebar, header, build footer
+    deployments/          # Active deployment banner
     reservations/         # Active reservation banner
+    ui/                   # Shared UI components
   providers/              # Auth and UI context providers
-  hooks/                  # useAuth, useReservation hooks
+  hooks/                  # useAuth, useReservation, useSSE hooks
 prisma/
   schema.prisma           # Database schema
   migrations/             # Migration history

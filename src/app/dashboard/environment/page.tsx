@@ -169,7 +169,7 @@ export default function EnvironmentPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Environment Links</h1>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
             Quick access to management interfaces for your Holodeck deployment
           </p>

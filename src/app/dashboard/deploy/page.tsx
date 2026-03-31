@@ -122,6 +122,10 @@ export default function DeployPage() {
   const [selectedConfigId, setSelectedConfigId] = useState<string>("");
   const [loadingConfigs, setLoadingConfigs] = useState(true);
 
+  // Binary check for selected VCF version
+  const [binCheck, setBinCheck] = useState<{ found: boolean; fileCount: number; files: string[] } | null>(null);
+  const [binCheckLoading, setBinCheckLoading] = useState(false);
+
   // VMware inventory
   const [inventory, setInventory] = useState<{
     datastores: string[];
@@ -205,6 +209,18 @@ export default function DeployPage() {
       fetchConfigDetails(selectedConfigId);
     }
   }, [selectedConfigId, fetchConfigDetails]);
+
+  // Check for binaries when version changes
+  useEffect(() => {
+    if (!params.version || sshConfigured === false) return;
+    setBinCheckLoading(true);
+    setBinCheck(null);
+    fetch(`/api/config/check-binaries?version=${encodeURIComponent(params.version)}`)
+      .then((r) => r.json())
+      .then((data) => setBinCheck({ found: data.found, fileCount: data.fileCount, files: data.files || [] }))
+      .catch(() => setBinCheck(null))
+      .finally(() => setBinCheckLoading(false));
+  }, [params.version, sshConfigured]);
 
   const set = (updates: Partial<DeployParams>) =>
     setParams((p) => ({ ...p, ...updates }));
@@ -544,6 +560,25 @@ export default function DeployPage() {
                   <option key={v} value={v}>{v}{v === latestVersion ? " (latest)" : ""}</option>
                 ))}
               </select>
+              {binCheckLoading && (
+                <p className="text-xs text-muted-foreground mt-1">Checking for binaries on holorouter...</p>
+              )}
+              {!binCheckLoading && binCheck && binCheck.found && (
+                <p className="text-xs text-green-400 mt-1">
+                  ✓ Found {binCheck.fileCount} file{binCheck.fileCount !== 1 ? "s" : ""} in /holodeck-runtime/bin/{params.version}/
+                </p>
+              )}
+              {!binCheckLoading && binCheck && !binCheck.found && (
+                <div className="mt-2 p-3 bg-red-500/10 border border-red-500/30 rounded-md">
+                  <p className="text-sm text-red-400 font-medium">
+                    ⚠ No binaries found in /holodeck-runtime/bin/{params.version}/
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ESX ISO and VCF Installer OVA must be staged on the holorouter before deploying.
+                    Upload them to <code className="text-red-400/80">/holodeck-runtime/bin/{params.version}/</code> via SCP or the holorouter webtop.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

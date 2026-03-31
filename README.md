@@ -1,6 +1,8 @@
-# Holodeck Router UI
+# Holodeck UI
 
-Web-based management interface for VCF 9 Holodeck deployments. Provides a guided deployment wizard, Day 2 operations, PowerShell command execution, reservation scheduling, and user management — all driven through SSH to a holorouter VM.
+Web-based management interface for VMware VCF 9 Holodeck deployments. Provides a guided deployment wizard, Day 2 operations, PowerShell command execution, reservation scheduling, and user management — all driven through SSH to a holorouter VM.
+
+If you run a Holodeck lab environment and want a web UI instead of managing everything through PowerShell on the holorouter directly, this is for you.
 
 ## Tech Stack
 
@@ -47,6 +49,8 @@ The app runs at `http://localhost:3000`. Default login:
 - **Username**: `admin`
 - **Password**: `HoloDeck!Admin1`
 
+> **Note:** Change the default admin password after first login. You can manage users and passwords from the Admin panel once logged in.
+
 ### Docker
 
 ```bash
@@ -61,6 +65,21 @@ docker compose up --build
 ```
 
 The container runs behind a Caddy reverse proxy on ports 80/443.
+
+### Production (Portainer / Docker Compose)
+
+A standalone `docker-compose.prod.yml` is provided for production deployments. It pulls a prebuilt image from GitHub Container Registry:
+
+```bash
+# Download the production compose file
+curl -O https://raw.githubusercontent.com/xzitony/holodeck-ui/main/docker-compose.prod.yml
+
+# Set required env vars and deploy
+export JWT_SECRET="your-secret-key"
+docker compose -f docker-compose.prod.yml up -d
+```
+
+This file is also designed to be pasted directly into a **Portainer Stack** — just set the `JWT_SECRET` environment variable in the Portainer UI and deploy.
 
 ## Environment Variables
 
@@ -165,9 +184,17 @@ All holorouter communication goes through `src/lib/ssh.ts`:
 
 ## Docker Details
 
-The Dockerfile uses a multi-stage build:
+The `Dockerfile` uses a multi-stage build:
 1. **deps** — Install npm dependencies
 2. **builder** — Build Next.js with Prisma generation
 3. **runner** — Alpine production image with tmux, openssh-client, sshpass
 
 The entrypoint runs Prisma migrations and seeds before starting the server. Data persists via a volume mount at `./data`.
+
+## Contributing
+
+Issues and pull requests are welcome. If you run into a problem or have a feature request, please [open an issue](https://github.com/xzitony/holodeck-ui/issues).
+
+## License
+
+[MIT](LICENSE)

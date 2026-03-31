@@ -1,0 +1,1602 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Holodeck Router UI API",
+    "description": "REST API for managing VCF 9 Holodeck deployments, Day 2 operations, reservations, commands, user management, and email notifications.",
+    "version": "1.2.0"
+  },
+  "servers": [
+    { "url": "/", "description": "Current instance" }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Authentication and session management" },
+    { "name": "Config", "description": "Global configuration and SSH settings" },
+    { "name": "Holodeck Configs", "description": "Holodeck deployment configurations synced from the holorouter" },
+    { "name": "Users", "description": "User management (superadmin)" },
+    { "name": "Reservations", "description": "Lab reservation scheduling" },
+    { "name": "Commands", "description": "PowerShell command execution" },
+    { "name": "Instances", "description": "Unified view of configs and deployment state" },
+    { "name": "Deployments", "description": "Long-running deployment management" },
+    { "name": "Day 2 Ops", "description": "Day 2 operations (add cluster, nodes, automation)" },
+    { "name": "Audit", "description": "Audit log history" },
+    { "name": "Environment", "description": "Environment links" },
+    { "name": "Depot", "description": "Offline depot binary management via VCF Download Tool" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "holodeck-token",
+        "description": "JWT token set as httpOnly cookie after login"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "username": { "type": "string" },
+          "displayName": { "type": "string" },
+          "email": { "type": "string", "nullable": true },
+          "role": { "type": "string", "enum": ["user", "labadmin", "superadmin"] },
+          "enabled": { "type": "boolean" }
+        }
+      },
+      "Reservation": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "startTime": { "type": "string", "format": "date-time" },
+          "endTime": { "type": "string", "format": "date-time" },
+          "notes": { "type": "string", "nullable": true },
+          "isMaintenance": { "type": "boolean" },
+          "isCustomerDemo": { "type": "boolean" },
+          "status": { "type": "string" },
+          "userId": { "type": "string" },
+          "user": {
+            "type": "object",
+            "properties": {
+              "displayName": { "type": "string" },
+              "username": { "type": "string" },
+              "email": { "type": "string", "nullable": true }
+            }
+          }
+        }
+      },
+      "BackgroundJob": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "mode": { "type": "string" },
+          "status": { "type": "string", "enum": ["running", "completed", "failed"] },
+          "sessionName": { "type": "string" },
+          "logFile": { "type": "string", "nullable": true, "description": "Path to saved tmux output log (set on completion)" },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "completedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "user": {
+            "type": "object",
+            "properties": {
+              "displayName": { "type": "string" },
+              "username": { "type": "string" }
+            }
+          }
+        }
+      },
+      "HoloDeckConfig": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "configId": { "type": "string", "description": "ConfigID from holorouter" },
+          "description": { "type": "string", "description": "User-friendly description (local metadata)" },
+          "notes": { "type": "string", "nullable": true },
+          "lastSynced": { "type": "string", "format": "date-time", "nullable": true },
+          "vcfVersion": { "type": "string", "description": "From cached config JSON" },
+          "instance": { "type": "string", "description": "Running instance ID, if deployed" },
+          "targetHost": { "type": "string" },
+          "vsanMode": { "type": "string" },
+          "depotType": { "type": "string" },
+          "dnsDomain": { "type": "string" },
+          "hasSiteB": { "type": "boolean" }
+        }
+      },
+      "Capabilities": {
+        "type": "object",
+        "properties": {
+          "hasSiteB": { "type": "boolean" },
+          "hasAriaAutomation": { "type": "boolean" },
+          "hasAriaOperations": { "type": "boolean" },
+          "hasAriaLogs": { "type": "boolean" },
+          "hasAriaNetworks": { "type": "boolean" },
+          "hasNsx": { "type": "boolean" },
+          "hasWorkloadDomain": { "type": "boolean" }
+        }
+      },
+      "AuditLog": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "userId": { "type": "string" },
+          "action": { "type": "string" },
+          "details": { "type": "string" },
+          "status": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [{ "cookieAuth": [] }],
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Sign in",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": { "$ref": "#/components/schemas/User" },
+                    "token": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Get current user",
+        "responses": {
+          "200": {
+            "description": "Current user info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Not authenticated" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Sign out",
+        "security": [],
+        "responses": {
+          "200": { "description": "Logged out, cookie cleared" }
+        }
+      }
+    },
+    "/api/config": {
+      "get": {
+        "tags": ["Config"],
+        "summary": "Get all global config",
+        "description": "Returns infrastructure connectivity settings. Sensitive values are masked. Superadmin only.",
+        "responses": {
+          "200": {
+            "description": "Config list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": { "type": "string" },
+                          "value": { "type": "string", "description": "Masked as •••••••• if sensitive" },
+                          "sensitive": { "type": "boolean" },
+                          "description": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Not superadmin" }
+        }
+      },
+      "put": {
+        "tags": ["Config"],
+        "summary": "Update global config",
+        "description": "Upserts config values. Superadmin only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["configs"],
+                "properties": {
+                  "configs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["key", "value"],
+                      "properties": {
+                        "key": { "type": "string" },
+                        "value": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Config saved" },
+          "403": { "description": "Not superadmin" }
+        }
+      }
+    },
+    "/api/config/ui": {
+      "get": {
+        "tags": ["Config"],
+        "summary": "Get UI customization settings",
+        "description": "Returns ui_* config keys. Public (no auth required).",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "UI config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ui": { "type": "object", "additionalProperties": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config/ssh-status": {
+      "get": {
+        "tags": ["Config"],
+        "summary": "Check if SSH is configured",
+        "responses": {
+          "200": {
+            "description": "SSH config status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config/test": {
+      "post": {
+        "tags": ["Config"],
+        "summary": "Test holorouter SSH connection",
+        "description": "Tests connectivity to the configured holorouter. Superadmin only.",
+        "responses": {
+          "200": { "description": "Connection test result" },
+          "403": { "description": "Not superadmin" }
+        }
+      }
+    },
+    "/api/config/test-depot": {
+      "post": {
+        "tags": ["Config"],
+        "summary": "Test depot appliance SSH connection",
+        "description": "Tests connectivity to the offline depot appliance. Superadmin only.",
+        "responses": {
+          "200": { "description": "Connection test result" },
+          "403": { "description": "Not superadmin" }
+        }
+      }
+    },
+    "/api/config/test-depot-http": {
+      "post": {
+        "tags": ["Config"],
+        "summary": "Test offline depot HTTP connection",
+        "description": "Tests HTTP/HTTPS connectivity to the offline depot appliance using the configured protocol, IP, port, and optional Basic auth credentials. Superadmin only.",
+        "responses": {
+          "200": {
+            "description": "HTTP connection test result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Not superadmin" }
+        }
+      }
+    },
+    "/api/config/test-email": {
+      "post": {
+        "tags": ["Config"],
+        "summary": "Send a test email",
+        "description": "Sends a test email to verify the configured email provider (SMTP or Resend). Superadmin only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["to"],
+                "properties": {
+                  "to": { "type": "string", "format": "email", "description": "Recipient email address" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Test email result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Email address required" },
+          "403": { "description": "Not superadmin" }
+        }
+      }
+    },
+    "/api/cron/reservation-reminders": {
+      "get": {
+        "tags": ["Reservations"],
+        "summary": "Process reservation reminder emails",
+        "description": "Finds confirmed reservations starting within 5 minutes that haven't been reminded yet, sends reminder emails to users with email addresses, and marks them as sent. Called automatically every minute by the server. Optionally protected by CRON_SECRET bearer token.",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Bearer token matching CRON_SECRET env var (if set)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reminder processing result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "checked": { "type": "integer", "description": "Number of reservations checked" },
+                    "sent": { "type": "integer", "description": "Number of reminders sent" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid CRON_SECRET" }
+        }
+      }
+    },
+    "/api/config/build-info": {
+      "get": {
+        "tags": ["Config"],
+        "summary": "Get build/instance info",
+        "description": "Returns version, git SHA, hostname, uptime, etc. Superadmin only.",
+        "responses": {
+          "200": {
+            "description": "Build info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "version": { "type": "string" },
+                    "gitSha": { "type": "string" },
+                    "buildTime": { "type": "string" },
+                    "nodeVersion": { "type": "string" },
+                    "hostname": { "type": "string" },
+                    "environment": { "type": "string" },
+                    "uptime": { "type": "string" },
+                    "uptimeMs": { "type": "number" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Not superadmin" }
+        }
+      }
+    },
+    "/api/holodeck-configs": {
+      "get": {
+        "tags": ["Holodeck Configs"],
+        "summary": "List locally-tracked configs",
+        "description": "Returns all HoloDeck configs synced from the holorouter with local metadata and parsed summary data from cached JSON.",
+        "responses": {
+          "200": {
+            "description": "Config list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configs": { "type": "array", "items": { "$ref": "#/components/schemas/HoloDeckConfig" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Holodeck Configs"],
+        "summary": "Create new config on holorouter",
+        "description": "Runs New-HoloDeckConfig on the holorouter via SSH. Creates a new configuration file from the default template with target host credentials, then imports and caches it locally. labadmin+ only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["targetHost", "username", "password"],
+                "properties": {
+                  "targetHost": { "type": "string", "description": "ESX/vCenter hostname or IP" },
+                  "username": { "type": "string", "description": "ESX/vCenter username" },
+                  "password": { "type": "string", "description": "ESX/vCenter password" },
+                  "description": { "type": "string", "description": "Optional label for the config" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Config created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "configId": { "type": "string", "nullable": true },
+                    "output": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Missing required credentials" },
+          "403": { "description": "Forbidden — labadmin+ required" }
+        }
+      },
+      "put": {
+        "tags": ["Holodeck Configs"],
+        "summary": "Update config metadata",
+        "description": "Update local description/notes for a config. labadmin+ only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["configId"],
+                "properties": {
+                  "configId": { "type": "string" },
+                  "description": { "type": "string" },
+                  "notes": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Config updated" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Config not found locally" }
+        }
+      }
+    },
+    "/api/holodeck-configs/sync": {
+      "post": {
+        "tags": ["Holodeck Configs"],
+        "summary": "Sync configs from holorouter",
+        "description": "Fetches all configs from the holorouter via Get-HoloDeckConfig and Import-HoloDeckConfig, then updates the local DB cache. Any authenticated user can trigger this.",
+        "responses": {
+          "200": {
+            "description": "Sync result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "synced": { "type": "integer" },
+                    "configs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "configId": { "type": "string" },
+                          "description": { "type": "string" },
+                          "hasInstance": { "type": "boolean" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": { "description": "SSH or sync error" }
+        }
+      }
+    },
+    "/api/holodeck-configs/test-credentials": {
+      "post": {
+        "tags": ["Holodeck Configs"],
+        "summary": "Test ESX/vCenter credentials",
+        "description": "Tests ESX/vCenter credentials by running Connect-VIServer from VMware PowerCLI on the holorouter via SSH. Connects and immediately disconnects. labadmin+ only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["targetHost", "username", "password"],
+                "properties": {
+                  "targetHost": { "type": "string", "description": "ESX/vCenter hostname or IP" },
+                  "username": { "type": "string", "description": "Login username" },
+                  "password": { "type": "string", "description": "Login password" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Credential test result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Missing or invalid parameters" },
+          "403": { "description": "Forbidden — labadmin+ required" }
+        }
+      }
+    },
+    "/api/holodeck-configs/instances": {
+      "get": {
+        "tags": ["Holodeck Configs"],
+        "summary": "Fast cached instances endpoint",
+        "description": "Returns all configs with pre-computed capabilities from the local DB cache. No SSH calls — instant response. Includes a 'stale' flag when cache is older than 5 minutes.",
+        "responses": {
+          "200": {
+            "description": "Cached configs with capabilities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configs": {
+                      "type": "array",
+                      "items": {
+                        "allOf": [
+                          { "$ref": "#/components/schemas/HoloDeckConfig" },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "capabilities": { "$ref": "#/components/schemas/Capabilities" }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "cached": { "type": "boolean", "description": "Always true for this endpoint" },
+                    "stale": { "type": "boolean", "description": "True if cache is >5 min old or empty" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/holodeck-configs/{id}": {
+      "get": {
+        "tags": ["Holodeck Configs"],
+        "summary": "Get config details",
+        "description": "Returns full config details including parsed deployment settings from cached JSON. Superadmins also get the raw JSON.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Config ID (from holorouter)" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Config details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "config": { "$ref": "#/components/schemas/HoloDeckConfig" },
+                    "deploymentSettings": { "type": "object", "additionalProperties": true },
+                    "rawJson": { "type": "object", "description": "Full config JSON (superadmin only)" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Config not found" }
+        }
+      },
+      "put": {
+        "tags": ["Holodeck Configs"],
+        "summary": "Update config metadata",
+        "description": "Update description and notes. labadmin+ only.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": { "type": "string" },
+                  "notes": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Config updated" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Config not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Holodeck Configs"],
+        "summary": "Delete config from holorouter",
+        "description": "Removes the config JSON file from the holorouter and deletes the local cache entry. Refuses to delete configs with running instances. labadmin+ only.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Config ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Config deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Forbidden — labadmin+ required" },
+          "404": { "description": "Config not found locally" },
+          "409": { "description": "Config has a running instance — remove instance first" }
+        }
+      }
+    },
+    "/api/holodeck-configs/{id}/inventory": {
+      "post": {
+        "tags": ["Holodeck Configs"],
+        "summary": "Query VMware inventory from target host",
+        "description": "Connects to the config's target vCenter/ESXi host using stored credentials and queries available datastores, networks, clusters, and datacenters via PowerCLI. labadmin+ only.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Config ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "VMware inventory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "datastores": { "type": "array", "items": { "type": "string" }, "description": "Available datastore names" },
+                    "networks": { "type": "array", "items": { "type": "string" }, "description": "Available port group / network names" },
+                    "clusters": { "type": "array", "items": { "type": "string" }, "description": "Available cluster names (vCenter only)" },
+                    "datacenters": { "type": "array", "items": { "type": "string" }, "description": "Available datacenter names (vCenter only)" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Config missing credentials or target host" },
+          "403": { "description": "Forbidden — labadmin+ required" },
+          "404": { "description": "Config not found" },
+          "500": { "description": "PowerCLI query failed" }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "List all users",
+        "description": "Superadmin only.",
+        "responses": {
+          "200": {
+            "description": "User list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "users": { "type": "array", "items": { "$ref": "#/components/schemas/User" } }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Not superadmin" }
+        }
+      },
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create a user",
+        "description": "Superadmin only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password", "displayName", "role"],
+                "properties": {
+                  "username": { "type": "string", "pattern": "^[a-zA-Z0-9._-]+$", "minLength": 3, "maxLength": 50 },
+                  "password": { "type": "string", "minLength": 8 },
+                  "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "email": { "type": "string", "format": "email" },
+                  "role": { "type": "string", "enum": ["user", "labadmin", "superadmin"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User created" },
+          "409": { "description": "Username already exists" },
+          "403": { "description": "Not superadmin" }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Update a user",
+        "description": "Superadmin only.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "displayName": { "type": "string" },
+                  "email": { "type": "string" },
+                  "role": { "type": "string", "enum": ["user", "labadmin", "superadmin"] },
+                  "enabled": { "type": "boolean" },
+                  "password": { "type": "string", "minLength": 8 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User updated" },
+          "403": { "description": "Not superadmin" }
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Disable a user",
+        "description": "Soft-disables the user account. Superadmin only.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "User disabled" },
+          "403": { "description": "Not superadmin" }
+        }
+      }
+    },
+    "/api/reservations": {
+      "get": {
+        "tags": ["Reservations"],
+        "summary": "List reservations",
+        "parameters": [
+          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date-time" }, "description": "Filter: endTime >= from" },
+          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date-time" }, "description": "Filter: startTime <= to" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reservation list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reservations": { "type": "array", "items": { "$ref": "#/components/schemas/Reservation" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Reservations"],
+        "summary": "Create a reservation",
+        "description": "Creates a time slot. Returns overlap warning (409) if conflicts exist — resend with confirmOverlap: true to proceed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "startTime", "endTime"],
+                "properties": {
+                  "title": { "type": "string", "maxLength": 200 },
+                  "startTime": { "type": "string", "format": "date-time" },
+                  "endTime": { "type": "string", "format": "date-time" },
+                  "notes": { "type": "string", "maxLength": 1000 },
+                  "isMaintenance": { "type": "boolean", "description": "labadmin+ only" },
+                  "isCustomerDemo": { "type": "boolean" },
+                  "confirmOverlap": { "type": "boolean", "description": "Set true to bypass overlap warning" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Reservation created" },
+          "409": { "description": "Overlap detected" }
+        }
+      }
+    },
+    "/api/reservations/active": {
+      "get": {
+        "tags": ["Reservations"],
+        "summary": "Get active reservation and maintenance window",
+        "responses": {
+          "200": {
+            "description": "Active reservation info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reservation": { "$ref": "#/components/schemas/Reservation" },
+                    "maintenance": { "$ref": "#/components/schemas/Reservation" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reservations/{id}": {
+      "delete": {
+        "tags": ["Reservations"],
+        "summary": "Cancel a reservation",
+        "description": "Owner or superadmin can cancel.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Reservation cancelled" },
+          "403": { "description": "Not owner or superadmin" },
+          "404": { "description": "Reservation not found" }
+        }
+      }
+    },
+    "/api/commands": {
+      "get": {
+        "tags": ["Commands"],
+        "summary": "List available commands",
+        "description": "Returns enabled commands the user's role can access. Superadmins can pass ?all=true to include disabled commands (for the admin management page).",
+        "parameters": [
+          { "name": "all", "in": "query", "required": false, "schema": { "type": "string", "enum": ["true"] }, "description": "If 'true' and user is superadmin, returns all commands including disabled ones." }
+        ],
+        "responses": {
+          "200": {
+            "description": "Command list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "commands": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "slug": { "type": "string" },
+                          "description": { "type": "string" },
+                          "template": { "type": "string" },
+                          "parameters": { "type": "array", "items": { "type": "object" } },
+                          "category": { "type": "string" },
+                          "requiredRole": { "type": "string" },
+                          "isEnabled": { "type": "boolean" },
+                          "isBuiltIn": { "type": "boolean", "description": "True for seeded commands (cannot be deleted, only disabled)" },
+                          "sortOrder": { "type": "integer" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Commands"],
+        "summary": "Create a command definition",
+        "description": "Superadmin only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "slug", "description", "template"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "slug": { "type": "string" },
+                  "description": { "type": "string" },
+                  "template": { "type": "string" },
+                  "parameters": { "type": "array", "items": { "type": "object" } },
+                  "category": { "type": "string" },
+                  "requiredRole": { "type": "string", "enum": ["user", "labadmin", "superadmin"] },
+                  "sortOrder": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Command created" },
+          "403": { "description": "Not superadmin" }
+        }
+      }
+    },
+    "/api/commands/{id}": {
+      "patch": {
+        "tags": ["Commands"],
+        "summary": "Update a command",
+        "description": "Superadmin only.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "template": { "type": "string" },
+                  "parameters": { "type": "array", "items": { "type": "object" } },
+                  "category": { "type": "string" },
+                  "requiredRole": { "type": "string" },
+                  "isEnabled": { "type": "boolean" },
+                  "sortOrder": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Command updated" },
+          "403": { "description": "Not superadmin" }
+        }
+      },
+      "delete": {
+        "tags": ["Commands"],
+        "summary": "Delete a custom command",
+        "description": "Deletes a custom (non-built-in) command. Built-in commands return 409 and must be disabled instead. Custom commands with audit log history are soft-deleted (disabled) to preserve logs. Superadmin only.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Command deleted or soft-deleted" },
+          "403": { "description": "Not superadmin" },
+          "404": { "description": "Command not found" },
+          "409": { "description": "Built-in command cannot be deleted" }
+        }
+      }
+    },
+    "/api/commands/execute": {
+      "post": {
+        "tags": ["Commands"],
+        "summary": "Execute a command",
+        "description": "Runs a PowerShell command via SSH. Returns Server-Sent Events stream with real-time output. Role-gated per command. labadmin+ needs active reservation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["commandId"],
+                "properties": {
+                  "commandId": { "type": "string", "description": "Command slug" },
+                  "parameters": { "type": "object", "additionalProperties": true, "description": "Template parameters" },
+                  "configId": { "type": "string", "description": "HoloDeck config ID for context" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SSE stream",
+            "content": {
+              "text/event-stream": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "403": { "description": "Insufficient role or no reservation" },
+          "404": { "description": "Command not found" }
+        }
+      }
+    },
+    "/api/commands/configs": {
+      "get": {
+        "tags": ["Commands"],
+        "summary": "List HoloDeck configs (live SSH)",
+        "description": "Runs Get-HoloDeckConfig via SSH on the holorouter. For cached results, use /api/holodeck-configs/instances instead.",
+        "responses": {
+          "200": {
+            "description": "Config list from holorouter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configs": { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/commands/configs/capabilities": {
+      "get": {
+        "tags": ["Commands"],
+        "summary": "Get capabilities for a config",
+        "description": "Detects deployed components. Uses local cache first; falls back to live SSH. Pass ?live=true to force a fresh fetch.",
+        "parameters": [
+          { "name": "configId", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "live", "in": "query", "schema": { "type": "string", "enum": ["true"] }, "description": "Force live SSH fetch instead of cache" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detected capabilities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "capabilities": { "$ref": "#/components/schemas/Capabilities" },
+                    "source": { "type": "string", "enum": ["cache", "live"] },
+                    "lastSynced": { "type": "string", "format": "date-time", "description": "Only present when source=cache" },
+                    "rawKeys": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Missing or invalid configId" }
+        }
+      }
+    },
+    "/api/instances": {
+      "get": {
+        "tags": ["Instances"],
+        "summary": "List all configs with deployment state",
+        "description": "Returns each HoloDeckConfig merged with its BackgroundJob status. Each config has a computed state: not_deployed, deploying, running, completed, or failed.",
+        "responses": {
+          "200": {
+            "description": "Merged instance list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "instances": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "configId": { "type": "string" },
+                          "description": { "type": "string" },
+                          "notes": { "type": "string", "nullable": true },
+                          "lastSynced": { "type": "string", "format": "date-time", "nullable": true },
+                          "capabilities": {
+                            "type": "object",
+                            "properties": {
+                              "hasSiteB": { "type": "boolean" },
+                              "hasAriaAutomation": { "type": "boolean" },
+                              "hasAriaOperations": { "type": "boolean" },
+                              "hasAriaLogs": { "type": "boolean" },
+                              "hasAriaNetworks": { "type": "boolean" },
+                              "hasNsx": { "type": "boolean" },
+                              "hasWorkloadDomain": { "type": "boolean" }
+                            }
+                          },
+                          "instance": { "type": "string", "description": "Instance ID if deployed" },
+                          "vcfVersion": { "type": "string" },
+                          "targetHost": { "type": "string" },
+                          "remoteDescription": { "type": "string" },
+                          "state": { "type": "string", "enum": ["not_deployed", "deploying", "running", "completed", "failed"] },
+                          "activeJob": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "id": { "type": "string" },
+                              "name": { "type": "string" },
+                              "status": { "type": "string" },
+                              "startedAt": { "type": "string", "format": "date-time" },
+                              "completedAt": { "type": "string", "format": "date-time", "nullable": true },
+                              "userName": { "type": "string" }
+                            }
+                          },
+                          "lastJob": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "id": { "type": "string" },
+                              "name": { "type": "string" },
+                              "status": { "type": "string" },
+                              "startedAt": { "type": "string", "format": "date-time" },
+                              "completedAt": { "type": "string", "format": "date-time", "nullable": true },
+                              "userName": { "type": "string" }
+                            }
+                          },
+                          "jobCount": { "type": "integer" }
+                        }
+                      }
+                    },
+                    "stale": { "type": "boolean", "description": "Whether the cache may be outdated" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/deployments": {
+      "get": {
+        "tags": ["Deployments"],
+        "summary": "List all deployment jobs",
+        "responses": {
+          "200": {
+            "description": "Job list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobs": { "type": "array", "items": { "$ref": "#/components/schemas/BackgroundJob" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Deployments"],
+        "summary": "Start a new deployment",
+        "description": "Launches a Holodeck VCF deployment. labadmin+ with active reservation, or superadmin. Runs Import-HoloDeckConfig to load the selected config, then New-HoloDeckInstance to deploy.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["mode", "instanceId"],
+                "properties": {
+                  "mode": { "type": "string", "enum": ["vvf", "management", "fullstack", "dualsite"] },
+                  "instanceId": { "type": "string", "pattern": "^[a-zA-Z0-9]+$", "maxLength": 8, "description": "Alphanumeric only, max 8 characters" },
+                  "configId": { "type": "string", "description": "HoloDeck config ID — deployment settings resolved from its cached JSON" },
+                  "version": { "type": "string", "description": "VCF version override" },
+                  "site": { "type": "string", "enum": ["a", "b"], "default": "a" },
+                  "vsanMode": { "type": "string", "enum": ["ESA", "OSA"] },
+                  "depotType": { "type": "string", "enum": ["Online", "Offline"] },
+                  "dnsDomain": { "type": "string" },
+                  "logLevel": { "type": "string", "enum": ["INFO", "DEBUG", "SUCCESS", "WARN", "ERROR"] },
+                  "nsxEdgeClusterMgmtDomain": { "type": "boolean" },
+                  "nsxEdgeClusterWkldDomain": { "type": "boolean" },
+                  "deployVcfAutomation": { "type": "boolean" },
+                  "deploySupervisorMgmtDomain": { "type": "boolean" },
+                  "deploySupervisorWldDomain": { "type": "boolean" },
+                  "workloadDomainType": { "type": "string", "enum": ["SharedSSO", "IsolatedSSO"] },
+                  "provisionOnly": { "type": "boolean" },
+                  "cidr": { "type": "array", "items": { "type": "string" } },
+                  "vlanRangeStart": { "type": "array", "items": { "type": "integer" } },
+                  "siteBCidr": { "type": "array", "items": { "type": "string" } },
+                  "siteBVlanRangeStart": { "type": "array", "items": { "type": "integer" } },
+                  "datastoreName": { "type": "string", "description": "Datastore name for nested VM placement (DeveloperMode)" },
+                  "trunkPortGroupName": { "type": "string", "description": "Trunk port group / virtual network name for Site A (DeveloperMode)" },
+                  "trunkPortGroupNameSiteB": { "type": "string", "description": "Trunk port group for Site B in dual-site deployments (DeveloperMode)" },
+                  "clusterName": { "type": "string", "description": "vSphere cluster name (DeveloperMode)" },
+                  "dcName": { "type": "string", "description": "vSphere datacenter name (DeveloperMode)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deployment started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "jobId": { "type": "string" },
+                    "sessionName": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid mode or instanceId" },
+          "403": { "description": "Insufficient role or no reservation" }
+        }
+      },
+      "delete": {
+        "tags": ["Deployments"],
+        "summary": "Clear completed job history",
+        "description": "Deletes all non-running jobs and cleans up tmux sessions. labadmin+.",
+        "responses": {
+          "200": {
+            "description": "History cleared",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Insufficient permissions" }
+        }
+      }
+    },
+    "/api/deployments/{id}": {
+      "get": {
+        "tags": ["Deployments"],
+        "summary": "Get job status and output",
+        "description": "Returns job info and captured tmux output. For completed jobs with saved logs, returns the saved log instead of tmux.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "lines", "in": "query", "schema": { "type": "integer", "default": 500 }, "description": "Number of output lines to capture" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job status and output",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job": { "$ref": "#/components/schemas/BackgroundJob" },
+                    "output": { "type": "string" },
+                    "alive": { "type": "boolean" },
+                    "hasLog": { "type": "boolean", "description": "True if a saved log file exists" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Job not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Deployments"],
+        "summary": "Cancel a running deployment",
+        "description": "Saves tmux output to log file, kills the session, marks job as failed. Superadmin only.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Deployment cancelled" },
+          "400": { "description": "Job is not running" },
+          "403": { "description": "Not superadmin" },
+          "404": { "description": "Job not found" }
+        }
+      }
+    },
+    "/api/deployments/{id}/log": {
+      "get": {
+        "tags": ["Deployments"],
+        "summary": "Download deployment log",
+        "description": "Returns the saved tmux output log as a downloadable text file. Only available for completed/failed jobs that have a saved log.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Log file download",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "404": { "description": "Job or log not found" }
+        }
+      }
+    },
+    "/api/day2": {
+      "post": {
+        "tags": ["Day 2 Ops"],
+        "summary": "Start a Day 2 operation",
+        "description": "Runs a long-running Day 2 operation (add cluster, nodes, or automation). labadmin+ with active reservation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["operation"],
+                "properties": {
+                  "operation": { "type": "string", "enum": ["add-cluster", "add-esxi-nodes", "add-vcf-automation"] },
+                  "site": { "type": "string", "enum": ["a", "b"], "default": "a" },
+                  "domain": { "type": "string", "enum": ["Management", "Workload"], "description": "Required for add-cluster and add-vcf-automation" },
+                  "count": { "type": "integer", "minimum": 1, "description": "Required for add-esxi-nodes" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "jobId": { "type": "string" },
+                    "sessionName": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid operation or missing parameters" },
+          "403": { "description": "Insufficient role or no reservation" }
+        }
+      }
+    },
+    "/api/audit": {
+      "get": {
+        "tags": ["Audit"],
+        "summary": "Get audit logs",
+        "description": "Superadmins see all logs, users see only their own.",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated audit logs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "logs": { "type": "array", "items": { "$ref": "#/components/schemas/AuditLog" } },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "page": { "type": "integer" },
+                        "limit": { "type": "integer" },
+                        "total": { "type": "integer" },
+                        "totalPages": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/environment-links": {
+      "get": {
+        "tags": ["Environment"],
+        "summary": "Get environment links",
+        "description": "Returns categorized links from environment-links.json config.",
+        "responses": {
+          "200": {
+            "description": "Environment link categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "categories": { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/depot": {
+      "get": {
+        "tags": ["Depot"],
+        "summary": "Scan depot or check status",
+        "description": "action=check: combined scan + Broadcom list in a single SSH call (pass version param to filter). action=status: check download tmux session. No action: legacy file listing.",
+        "parameters": [
+          { "name": "action", "in": "query", "schema": { "type": "string", "enum": ["check", "status"] }, "description": "check=combined scan+list, status=download session status" },
+          { "name": "version", "in": "query", "schema": { "type": "string" }, "description": "VCF version to filter components (for action=check)" },
+          { "name": "session", "in": "query", "schema": { "type": "string" }, "description": "tmux session name (for action=status)" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Depot scan results or session status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "components": { "type": "object", "additionalProperties": true, "description": "Component name -> {files, totalSize}" },
+                    "hasMetadata": { "type": "boolean" },
+                    "hasVsanHcl": { "type": "boolean" },
+                    "totalSize": { "type": "string" },
+                    "listOutput": { "type": "string", "description": "Raw Broadcom list output" },
+                    "listSuccess": { "type": "boolean", "description": "Whether Broadcom list succeeded" },
+                    "alive": { "type": "boolean" },
+                    "output": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Forbidden — requires labadmin or superadmin role" }
+        }
+      },
+      "post": {
+        "tags": ["Depot"],
+        "summary": "Depot operations",
+        "description": "download=start download, kill=cancel download, cleanup-list=find files for a version, cleanup-delete=delete specific files.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": { "type": "string", "enum": ["download", "kill", "cleanup-list", "cleanup-delete"], "description": "Operation to perform" },
+                  "vcfVersion": { "type": "string", "description": "VCF version for download" },
+                  "session": { "type": "string", "description": "tmux session name for kill" },
+                  "cleanupVersion": { "type": "string", "description": "Version to find/delete files for (cleanup actions)" },
+                  "files": { "type": "array", "items": { "type": "string" }, "description": "File paths to delete (cleanup-delete)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "output": { "type": "string" },
+                    "session": { "type": "string" },
+                    "message": { "type": "string" },
+                    "files": { "type": "array", "items": { "type": "string" }, "description": "Matching files (cleanup-list)" },
+                    "count": { "type": "integer" },
+                    "deleted": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Missing parameters" },
+          "403": { "description": "Forbidden — requires labadmin or superadmin role" },
+          "409": { "description": "Download already in progress" }
+        }
+      }
+    }
+  }
+}

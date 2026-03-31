@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.local
+*.md
+.claude
+.DS_Store
+data
+caddy_data
+caddy_config

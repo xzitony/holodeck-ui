@@ -1,0 +1,114 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             String          @id @default(cuid())
+  username       String          @unique
+  email          String?
+  passwordHash   String
+  displayName    String
+  role           String          @default("user") // "superadmin" | "labadmin" | "user"
+  enabled        Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  reservations   Reservation[]
+  auditLogs      AuditLog[]
+  backgroundJobs BackgroundJob[]
+}
+
+model GlobalConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String // encrypted for sensitive values
+  sensitive   Boolean  @default(false)
+  description String   @default("")
+  updatedAt   DateTime @updatedAt
+}
+
+model CommandDefinition {
+  id           String     @id @default(cuid())
+  name         String     @unique
+  slug         String     @unique
+  description  String
+  template     String // pwsh command with {{placeholders}}
+  parameters   String     @default("[]") // JSON array of param definitions
+  category     String     @default("general")
+  requiredRole String     @default("user") // minimum role needed
+  isEnabled    Boolean    @default(true)
+  isBuiltIn    Boolean    @default(false) // true for seeded commands, can't be deleted
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  auditLogs    AuditLog[]
+}
+
+model Reservation {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  title         String
+  startTime     DateTime
+  endTime       DateTime
+  notes         String?
+  isMaintenance  Boolean  @default(false) // true = maintenance window visible to all users
+  isCustomerDemo Boolean  @default(false) // true = higher priority, stronger warnings for overlaps
+  status         String   @default("confirmed") // "confirmed" | "cancelled"
+  reminderSent   Boolean  @default(false) // true once the 5-min reminder email has been sent
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([startTime, endTime])
+  @@index([userId])
+}
+
+model BackgroundJob {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  name        String   // Human-readable name e.g. "Deploy Management Only (qqmd)"
+  sessionName String   @unique // tmux session name
+  mode        String   // "vvf" | "management" | "fullstack" | "dualsite"
+  parameters  String   @default("{}") // JSON of deployment parameters
+  command     String   // The full command that was executed
+  status      String   @default("running") // "running" | "completed" | "failed"
+  exitCode    Int?
+  logFile     String?  // Path to saved tmux output log
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model HoloDeckConfig {
+  id          String   @id @default(cuid())
+  configId    String   @unique // ConfigID from holorouter (e.g. "holodeck-default")
+  description String   @default("") // User-friendly description
+  notes       String?  // Admin notes
+  lastSynced  DateTime? // Last time we fetched this config's JSON from holorouter
+  cachedJson  String?  // Cached full config JSON from Import-HoloDeckConfig
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id])
+  action    String // "command_execute" | "login" | "reservation_create" etc.
+  commandId String?
+  command   CommandDefinition? @relation(fields: [commandId], references: [id])
+  details   String? // JSON blob
+  status    String             @default("success") // "success" | "failure" | "error"
+  ipAddress String?
+  createdAt DateTime           @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}

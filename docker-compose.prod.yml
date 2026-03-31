@@ -1,0 +1,40 @@
+## Production compose file — pulls prebuilt images from ghcr.io
+## Usage:
+##   1. Paste this into Portainer Stacks
+##   2. Set environment variables below
+##   3. Deploy
+##
+## Required env vars:
+##   JWT_SECRET=<random-secret>
+
+services:
+  app:
+    image: ghcr.io/xzitony/holodeck-ui:latest
+    restart: unless-stopped
+    volumes:
+      - app_data:/app/data
+    environment:
+      - DATABASE_URL=file:/app/data/holodeck.db
+      - JWT_SECRET=${JWT_SECRET}
+      - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME:-VCF 9 Holodeck Router}
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    command: caddy reverse-proxy --from ${DOMAIN:-holodeck-ui.lab.xzicloud.com} --to app:3000 --internal-certs
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  app_data:
+  caddy_data:
+  caddy_config:

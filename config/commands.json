@@ -1,0 +1,327 @@
+[
+  {
+    "name": "List Configurations",
+    "slug": "get-holodeck-config",
+    "description": "List all available Holodeck deployment configurations on the holorouter",
+    "template": "Get-HoloDeckConfig",
+    "parameters": [],
+    "category": "inventory",
+    "requiredRole": "user",
+    "sortOrder": 0
+  },
+  {
+    "name": "View Config Details",
+    "slug": "get-holodeck-config-detail",
+    "description": "View the full JSON configuration for a deployment",
+    "template": "Import-HoloDeckConfig -ConfigID '{{configId}}' | Out-Null; $config | ConvertTo-Json -Depth 100",
+    "parameters": [
+      {
+        "name": "configId",
+        "label": "Config ID",
+        "type": "string",
+        "required": true,
+        "validation": "^[a-zA-Z0-9._-]+$",
+        "placeholder": "Auto-filled from active config"
+      }
+    ],
+    "category": "inventory",
+    "requiredRole": "user",
+    "sortOrder": 1
+  },
+  {
+    "name": "View Instance Details",
+    "slug": "get-holodeck-instance",
+    "description": "View deployed appliances and resources of the instance",
+    "template": "Get-HoloDeckInstance -InstanceID '{{instanceId}}'",
+    "parameters": [
+      {
+        "name": "instanceId",
+        "label": "Instance ID",
+        "type": "string",
+        "required": true,
+        "validation": "^[a-zA-Z0-9._-]+$",
+        "placeholder": "Auto-filled from active config"
+      }
+    ],
+    "category": "inventory",
+    "requiredRole": "user",
+    "sortOrder": 1
+  },
+  {
+    "name": "View Subnets",
+    "slug": "get-holodeck-subnet",
+    "description": "List subnet configurations for the current deployment",
+    "template": "Get-HoloDeckSubnet -Site '{{site}}'",
+    "parameters": [
+      {
+        "name": "site",
+        "label": "Site",
+        "type": "select",
+        "required": true,
+        "options": ["a", "b"]
+      }
+    ],
+    "category": "inventory",
+    "requiredRole": "user",
+    "sortOrder": 2
+  },
+  {
+    "name": "View Overlay Subnets",
+    "slug": "get-holodeck-overlaysubnet",
+    "description": "View NSX overlay subnet details for the current deployment",
+    "template": "Get-HoloDeckOverlaySubnet -Site '{{site}}'",
+    "parameters": [
+      {
+        "name": "site",
+        "label": "Site",
+        "type": "select",
+        "required": true,
+        "options": ["a", "b"]
+      }
+    ],
+    "category": "inventory",
+    "requiredRole": "user",
+    "sortOrder": 3
+  },
+  {
+    "name": "View App IP Pools",
+    "slug": "get-holodeck-appippools",
+    "description": "View IP pool definitions for the VCF appliances",
+    "template": "Get-HoloDeckAppIpPools -Site '{{site}}'",
+    "parameters": [
+      {
+        "name": "site",
+        "label": "Site",
+        "type": "select",
+        "required": true,
+        "options": ["a", "b"]
+      }
+    ],
+    "category": "inventory",
+    "requiredRole": "user",
+    "sortOrder": 4
+  },
+  {
+    "name": "View Service IP Pools",
+    "slug": "get-holodeck-serviceippools",
+    "description": "View IP pool allocations for the VCF infrastructure services",
+    "template": "Get-HoloDeckServiceIPPools -Site '{{site}}'",
+    "parameters": [
+      {
+        "name": "site",
+        "label": "Site",
+        "type": "select",
+        "required": true,
+        "options": ["a", "b"]
+      }
+    ],
+    "category": "inventory",
+    "requiredRole": "user",
+    "sortOrder": 5
+  },
+  {
+    "name": "View DNS Entries",
+    "slug": "get-holodeck-appnetwork",
+    "description": "View IP-hostname mappings and resource URLs for the current deployment",
+    "template": "Get-HoloDeckAppNetwork -Site '{{site}}'",
+    "parameters": [
+      {
+        "name": "site",
+        "label": "Site",
+        "type": "select",
+        "required": true,
+        "options": ["a", "b"]
+      }
+    ],
+    "category": "network",
+    "requiredRole": "user",
+    "sortOrder": 6
+  },
+  {
+    "name": "View BGP Configuration",
+    "slug": "get-holodeck-bgpconfig",
+    "description": "Display BGP routing configuration",
+    "template": "Get-HoloDeckBGPConfig -Site '{{site}}'",
+    "parameters": [
+      {
+        "name": "site",
+        "label": "Site",
+        "type": "select",
+        "required": true,
+        "options": ["a", "b"]
+      }
+    ],
+    "category": "network",
+    "requiredRole": "user",
+    "sortOrder": 7
+  },
+  {
+    "name": "Add DNS Entry",
+    "slug": "set-holodeck-dnsconfig",
+    "description": "Add a custom DNS record to the holorouter CoreDNS server",
+    "template": "Set-HoloDeckDNSConfig -DNSRecord '{{ipAddress}} {{hostname}}'",
+    "parameters": [
+      {
+        "name": "ipAddress",
+        "label": "IP Address",
+        "type": "string",
+        "required": true,
+        "validation": "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$",
+        "placeholder": "e.g. 10.1.1.201"
+      },
+      {
+        "name": "hostname",
+        "label": "FQDN",
+        "type": "string",
+        "required": true,
+        "validation": "^[a-zA-Z0-9._-]+$",
+        "placeholder": "e.g. harbor.site-a.vcf.lab"
+      }
+    ],
+    "category": "network",
+    "requiredRole": "labadmin",
+    "sortOrder": 8
+  },
+  {
+    "name": "Remove DNS Entry",
+    "slug": "remove-holodeck-dnsconfig",
+    "description": "Delete a DNS record from the holorouter CoreDNS configuration (be careful)",
+    "template": "Remove-HoloDeckDNSConfig -DNSRecord '{{ipAddress}} {{hostname}}'",
+    "parameters": [
+      {
+        "name": "ipAddress",
+        "label": "IP Address",
+        "type": "string",
+        "required": true,
+        "validation": "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$",
+        "placeholder": "e.g. 10.1.1.201"
+      },
+      {
+        "name": "hostname",
+        "label": "FQDN",
+        "type": "string",
+        "required": true,
+        "validation": "^[a-zA-Z0-9._-]+$",
+        "placeholder": "e.g. harbor.site-a.vcf.lab"
+      }
+    ],
+    "category": "network",
+    "requiredRole": "labadmin",
+    "sortOrder": 9
+  },
+  {
+    "name": "Stop Instance",
+    "slug": "stop-holodeck-instance",
+    "description": "Power off a running Holodeck deployment",
+    "template": "Stop-HoloDeckInstance -InstanceID '{{instanceId}}'",
+    "parameters": [
+      {
+        "name": "instanceId",
+        "label": "Instance ID",
+        "type": "string",
+        "required": true,
+        "validation": "^[a-zA-Z0-9._-]+$",
+        "placeholder": "Auto-filled from active config"
+      }
+    ],
+    "category": "lifecycle",
+    "requiredRole": "labadmin",
+    "sortOrder": 14
+  },
+  {
+    "name": "Start Instance",
+    "slug": "start-holodeck-instance",
+    "description": "Power on a stopped Holodeck deployment",
+    "template": "Start-HoloDeckInstance -InstanceID '{{instanceId}}'",
+    "parameters": [
+      {
+        "name": "instanceId",
+        "label": "Instance ID",
+        "type": "string",
+        "required": true,
+        "validation": "^[a-zA-Z0-9._-]+$",
+        "placeholder": "Auto-filled from active config"
+      }
+    ],
+    "category": "lifecycle",
+    "requiredRole": "labadmin",
+    "sortOrder": 15
+  },
+  {
+    "name": "Remove Instance",
+    "slug": "remove-holodeck-instance",
+    "description": "Delete and tear down a Holodeck deployment (destructive)",
+    "template": "Remove-HoloDeckInstance -InstanceID '{{instanceId}}'",
+    "parameters": [
+      {
+        "name": "instanceId",
+        "label": "Instance ID",
+        "type": "string",
+        "required": true,
+        "validation": "^[a-zA-Z0-9._-]+$",
+        "placeholder": "Auto-filled from active config"
+      }
+    ],
+    "category": "lifecycle",
+    "requiredRole": "labadmin",
+    "sortOrder": 16
+  },
+  {
+    "name": "Delete Config File",
+    "slug": "delete-config-file",
+    "description": "Remove a configuration JSON file from the holorouter (destructive)",
+    "template": "Get-Item '/holodeck-runtime/config/{{configId}}.json'; Remove-Item '/holodeck-runtime/config/{{configId}}.json' -Force; Write-Output 'Deleted /holodeck-runtime/config/{{configId}}.json'",
+    "parameters": [
+      {
+        "name": "configId",
+        "label": "Config ID",
+        "type": "string",
+        "required": true,
+        "validation": "^[a-zA-Z0-9._-]+$",
+        "placeholder": "Auto-filled from active config"
+      }
+    ],
+    "category": "maintenance",
+    "requiredRole": "labadmin",
+    "sortOrder": 17
+  },
+  {
+    "name": "Delete Instance State",
+    "slug": "delete-instance-state",
+    "description": "Remove the output/state file for an instance from the holorouter (destructive)",
+    "template": "Get-Item '/holodeck-runtime/output/{{instanceId}}.json'; Remove-Item '/holodeck-runtime/output/{{instanceId}}.json' -Force; Write-Output 'Deleted /holodeck-runtime/output/{{instanceId}}.json'",
+    "parameters": [
+      {
+        "name": "instanceId",
+        "label": "Instance ID",
+        "type": "string",
+        "required": true,
+        "validation": "^[a-zA-Z0-9._-]+$",
+        "placeholder": "Auto-filled from active config"
+      }
+    ],
+    "category": "maintenance",
+    "requiredRole": "labadmin",
+    "sortOrder": 18
+  },
+  {
+    "name": "List Config Files",
+    "slug": "list-config-files",
+    "description": "List the configuration files on the holorouter /config folder",
+    "template": "Get-ChildItem '/holodeck-runtime/config/' | Format-Table Name, Length, LastWriteTime -AutoSize",
+    "parameters": [],
+    "category": "maintenance",
+    "requiredRole": "user",
+    "sortOrder": 19
+  },
+  {
+    "name": "List State Files",
+    "slug": "list-state-files",
+    "description": "List the state files on the holorouter /state folder",
+    "template": "Get-ChildItem '/holodeck-runtime/output/' | Format-Table Name, Length, LastWriteTime -AutoSize",
+    "parameters": [],
+    "category": "maintenance",
+    "requiredRole": "user",
+    "sortOrder": 20
+  }
+]

@@ -1,0 +1,254 @@
+{
+  "categories": [
+    {
+      "label": "Management Domain (Site A)",
+      "links": [
+        {
+          "name": "VCF Operations",
+          "description": "VCF Operations management portal",
+          "url": "https://ops-a.site-a.vcf.lab/",
+          "username": "admin / admin@local",
+          "conditions": {}
+        },
+        {
+          "name": "SDDC Manager",
+          "description": "VMware SDDC Manager UI",
+          "url": "https://sddcmanager-a.site-a.vcf.lab/",
+          "username": "administrator@vsphere.local",
+          "conditions": {}
+        },
+        {
+          "name": "Management vCenter",
+          "description": "vSphere Client for management domain",
+          "url": "https://vc-mgmt-a.site-a.vcf.lab/",
+          "username": "administrator@vsphere.local",
+          "conditions": {}
+        },
+        {
+          "name": "Management NSX",
+          "description": "NSX Manager for management domain",
+          "url": "https://nsx-mgmt-a.site-a.vcf.lab",
+          "username": "admin",
+          "conditions": {}
+        },
+        {
+          "name": "VCF Installer / Cloud Builder",
+          "description": "VCF deployment installer appliance",
+          "url": "https://vcfinstaller-a.site-a.vcf.lab",
+          "username": "admin@local / admin",
+          "conditions": {}
+        },
+        {
+          "name": "VCF Automation",
+          "description": "Aria Automation orchestration (Org: system)",
+          "url": "https://auto-a.site-a.vcf.lab/",
+          "username": "admin",
+          "conditions": { "requiresAriaAutomation": true }
+        }
+      ]
+    },
+    {
+      "label": "Management Domain (Site B)",
+      "links": [
+        {
+          "name": "VCF Operations",
+          "description": "VCF Operations management portal",
+          "url": "https://ops-b.site-b.vcf.lab/",
+          "username": "admin / admin@local",
+          "conditions": { "requiresSiteB": true }
+        },
+        {
+          "name": "SDDC Manager",
+          "description": "VMware SDDC Manager UI",
+          "url": "https://sddcmanager-b.site-b.vcf.lab/",
+          "username": "administrator@vsphere.local",
+          "conditions": { "requiresSiteB": true }
+        },
+        {
+          "name": "Management vCenter",
+          "description": "vSphere Client for management domain",
+          "url": "https://vc-mgmt-b.site-b.vcf.lab/",
+          "username": "administrator@vsphere.local",
+          "conditions": { "requiresSiteB": true }
+        },
+        {
+          "name": "Management NSX",
+          "description": "NSX Manager for management domain",
+          "url": "https://nsx-mgmt-b.site-b.vcf.lab",
+          "username": "admin",
+          "conditions": { "requiresSiteB": true }
+        },
+        {
+          "name": "VCF Installer / Cloud Builder",
+          "description": "VCF deployment installer appliance",
+          "url": "https://vcfinstaller-b.site-b.vcf.lab",
+          "username": "admin@local / admin",
+          "conditions": { "requiresSiteB": true }
+        },
+        {
+          "name": "VCF Automation",
+          "description": "Aria Automation orchestration (Org: system)",
+          "url": "https://auto-b.site-b.vcf.lab/",
+          "username": "admin",
+          "conditions": { "requiresSiteB": true, "requiresAriaAutomation": true }
+        }
+      ]
+    },
+    {
+      "label": "Management ESX Hosts (Site A)",
+      "links": [
+        {
+          "name": "ESX Host 01",
+          "description": "Management domain ESXi host",
+          "url": "https://esx-01a.site-a.vcf.lab",
+          "username": "root",
+          "conditions": {}
+        },
+        {
+          "name": "ESX Host 02",
+          "description": "Management domain ESXi host",
+          "url": "https://esx-02a.site-a.vcf.lab",
+          "username": "root",
+          "conditions": {}
+        },
+        {
+          "name": "ESX Host 03",
+          "description": "Management domain ESXi host",
+          "url": "https://esx-03a.site-a.vcf.lab",
+          "username": "root",
+          "conditions": {}
+        },
+        {
+          "name": "ESX Host 04",
+          "description": "Management domain ESXi host",
+          "url": "https://esx-04a.site-a.vcf.lab",
+          "username": "root",
+          "conditions": {}
+        }
+      ]
+    },
+    {
+      "label": "Management ESX Hosts (Site B)",
+      "links": [
+        {
+          "name": "ESX Host 01",
+          "description": "Management domain ESXi host",
+          "url": "https://esx-01b.site-b.vcf.lab",
+          "username": "root",
+          "conditions": { "requiresSiteB": true }
+        },
+        {
+          "name": "ESX Host 02",
+          "description": "Management domain ESXi host",
+          "url": "https://esx-02b.site-b.vcf.lab",
+          "username": "root",
+          "conditions": { "requiresSiteB": true }
+        },
+        {
+          "name": "ESX Host 03",
+          "description": "Management domain ESXi host",
+          "url": "https://esx-03b.site-b.vcf.lab",
+          "username": "root",
+          "conditions": { "requiresSiteB": true }
+        },
+        {
+          "name": "ESX Host 04",
+          "description": "Management domain ESXi host",
+          "url": "https://esx-04b.site-b.vcf.lab",
+          "username": "root",
+          "conditions": { "requiresSiteB": true }
+        }
+      ]
+    },
+    {
+      "label": "Workload Domain (Site A)",
+      "links": [
+        {
+          "name": "Workload vCenter",
+          "description": "vCenter for workload domain",
+          "url": "https://vc-wld01-a.site-a.vcf.lab/",
+          "username": "administrator@vsphere.local",
+          "conditions": { "requiresWorkloadDomain": true }
+        },
+        {
+          "name": "Workload NSX",
+          "description": "NSX Manager for workload domain",
+          "url": "https://nsx-wld01-a.site-a.vcf.lab/",
+          "username": "admin",
+          "conditions": { "requiresWorkloadDomain": true }
+        }
+      ]
+    },
+    {
+      "label": "Workload Domain (Site B)",
+      "links": [
+        {
+          "name": "Workload vCenter",
+          "description": "vCenter for workload domain",
+          "url": "https://vc-wld01-b.site-b.vcf.lab/",
+          "username": "administrator@vsphere.local",
+          "conditions": { "requiresSiteB": true, "requiresWorkloadDomain": true }
+        },
+        {
+          "name": "Workload NSX",
+          "description": "NSX Manager for workload domain",
+          "url": "https://nsx-wld01-b.site-b.vcf.lab/",
+          "username": "admin",
+          "conditions": { "requiresSiteB": true, "requiresWorkloadDomain": true }
+        }
+      ]
+    },
+    {
+      "label": "Workload ESX Hosts (Site A)",
+      "links": [
+        {
+          "name": "ESX Host 05",
+          "description": "Workload domain ESXi host",
+          "url": "https://esx-05a.site-a.vcf.lab",
+          "username": "root",
+          "conditions": { "requiresWorkloadDomain": true }
+        },
+        {
+          "name": "ESX Host 06",
+          "description": "Workload domain ESXi host",
+          "url": "https://esx-06a.site-a.vcf.lab",
+          "username": "root",
+          "conditions": { "requiresWorkloadDomain": true }
+        },
+        {
+          "name": "ESX Host 07",
+          "description": "Workload domain ESXi host",
+          "url": "https://esx-07a.site-a.vcf.lab",
+          "username": "root",
+          "conditions": { "requiresWorkloadDomain": true }
+        }
+      ]
+    },
+    {
+      "label": "Workload ESX Hosts (Site B)",
+      "links": [
+        {
+          "name": "ESX Host 05",
+          "description": "Workload domain ESXi host",
+          "url": "https://esx-05b.site-b.vcf.lab",
+          "username": "root",
+          "conditions": { "requiresSiteB": true, "requiresWorkloadDomain": true }
+        },
+        {
+          "name": "ESX Host 06",
+          "description": "Workload domain ESXi host",
+          "url": "https://esx-06b.site-b.vcf.lab",
+          "username": "root",
+          "conditions": { "requiresSiteB": true, "requiresWorkloadDomain": true }
+        },
+        {
+          "name": "ESX Host 07",
+          "description": "Workload domain ESXi host",
+          "url": "https://esx-07b.site-b.vcf.lab",
+          "username": "root",
+          "conditions": { "requiresSiteB": true, "requiresWorkloadDomain": true }
+        }
+      ]
+    }
+  ]
+}

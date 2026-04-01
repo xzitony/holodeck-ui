@@ -21,7 +21,7 @@ type Day2Operation = "add-cluster" | "add-esxi-nodes" | "add-vcf-automation";
 
 const operations: Record<
   Day2Operation,
-  { label: string; description: string; time: string }
+  { label: string; description: string; time: string; warning?: string }
 > = {
   "add-cluster": {
     label: "Add Cluster",
@@ -40,6 +40,8 @@ const operations: Record<
     description:
       "Deploy VCF Automation with All Apps organization to a domain.",
     time: "~1-2 hours",
+    warning:
+      "This requires VCF Automation to already be deployed in the instance and Supervisor to be deployed in the management or workload domain.",
   },
 };
 
@@ -477,6 +479,15 @@ export default function Day2OpsPage() {
 
               {/* Command preview */}
               <CommandPreview command={buildCommandPreview()} />
+
+              {operations[selected].warning && (
+                <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+                  <p className="text-sm text-warning font-medium">⚠ Prerequisite</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {operations[selected].warning}
+                  </p>
+                </div>
+              )}
 
               <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
                 <p className="text-sm text-warning font-medium">

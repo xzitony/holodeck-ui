@@ -281,7 +281,7 @@ function stripAnsi(str: string): string {
 function extractConfigSummary(json: Record<string, unknown>): Record<string, unknown> {
   const summary: Record<string, unknown> = {};
 
-  // Try to find version info
+  // Version info
   if (json.VCFVersion) summary.vcfVersion = json.VCFVersion;
   if (json.Version) summary.vcfVersion = json.Version;
 
@@ -289,8 +289,13 @@ function extractConfigSummary(json: Record<string, unknown>): Record<string, unk
   if (json.Instance) summary.instance = json.Instance;
   if (json.ConfigID) summary.remoteConfigId = json.ConfigID;
 
-  // Target host
+  // Target host and credentials (from Target object in config JSON)
+  const target = json.Target as Record<string, unknown> | undefined;
   if (json.TargetHost) summary.targetHost = json.TargetHost;
+  if (target?.hostname) summary.targetHost = target.hostname;
+  if (target?.username) summary.targetUsername = target.username;
+  if (target?.datastore) summary.targetDatastore = target.datastore;
+  if (target?.["networkPortGroup-a"]) summary.targetPortGroup = target["networkPortGroup-a"];
 
   // Site info
   if (json.SiteB && typeof json.SiteB === "object" && Object.keys(json.SiteB as object).length > 0) {
@@ -300,14 +305,24 @@ function extractConfigSummary(json: Record<string, unknown>): Record<string, unk
   // vSAN Mode
   if (json.vSANMode) summary.vsanMode = json.vSANMode;
 
-  // Depot type
+  // Depot type — check both top-level and nested in vcf-installer
   if (json.DepotType) summary.depotType = json.DepotType;
+  const sddcSiteA = (json["holodeck-sddc"] as Record<string, unknown>)?.["Site-A"] as Record<string, unknown> | undefined;
+  if (!summary.depotType && sddcSiteA) {
+    const installer = sddcSiteA["vcf-installer"] as Record<string, unknown> | undefined;
+    if (installer?.depotType) summary.depotType = (installer.depotType as string).charAt(0).toUpperCase() + (installer.depotType as string).slice(1);
+  }
+
+  // VCF version from Site-A sddc spec
+  if (!summary.vcfVersion && sddcSiteA?.version) summary.vcfVersion = sddcSiteA.version;
 
   // DNS Domain
   if (json.DNSDomain) summary.dnsDomain = json.DNSDomain;
+  if (!summary.dnsDomain && sddcSiteA?.domain) summary.dnsDomain = sddcSiteA.domain;
 
   // Description from config (not our local one)
   if (json.Description) summary.remoteDescription = json.Description;
+  if (json.description) summary.remoteDescription = json.description;
 
   return summary;
 }

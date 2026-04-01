@@ -14,6 +14,9 @@ interface HoloDeckConfig {
   vcfVersion?: string;
   instance?: string;
   targetHost?: string;
+  targetUsername?: string;
+  targetDatastore?: string;
+  targetPortGroup?: string;
   vsanMode?: string;
   depotType?: string;
   dnsDomain?: string;
@@ -131,6 +134,16 @@ export default function HoloDeckConfigsPage() {
     setNewUsername("");
     setNewPassword("");
     setNewDescription("");
+    setCreateMessage("");
+    setTestResult(null);
+  };
+
+  const handleClone = (config: HoloDeckConfig) => {
+    setShowNewForm(true);
+    setNewTargetHost(config.targetHost || "");
+    setNewUsername(config.targetUsername || "");
+    setNewPassword("");
+    setNewDescription(config.description ? `${config.description} (copy)` : "");
     setCreateMessage("");
     setTestResult(null);
   };
@@ -269,15 +282,7 @@ export default function HoloDeckConfigsPage() {
       {/* New Config Form */}
       {showNewForm && (
         <div className="bg-card border border-primary/50 rounded-lg p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-lg">Create New Configuration</h2>
-            <button
-              onClick={resetNewForm}
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Cancel
-            </button>
-          </div>
+          <h2 className="font-semibold text-lg">Create New Configuration</h2>
 
           <p className="text-sm text-muted-foreground">
             Initializes a new config file on the holorouter from the default template with your
@@ -331,7 +336,7 @@ export default function HoloDeckConfigsPage() {
             <button
               onClick={handleTestCredentials}
               disabled={testingCredentials || !newTargetHost || !newUsername || !newPassword}
-              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50"
             >
               {testingCredentials ? "Testing..." : "Test Connection"}
             </button>
@@ -445,14 +450,20 @@ export default function HoloDeckConfigsPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleEdit(config)}
-                    className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded-md hover:opacity-90"
+                    className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90"
                   >
                     Edit
+                  </button>
+                  <button
+                    onClick={() => handleClone(config)}
+                    className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-md font-medium hover:opacity-90"
+                  >
+                    Clone
                   </button>
                   {!config.instance && (
                     <button
                       onClick={() => setDeletingId(config.configId)}
-                      className="px-3 py-1.5 text-sm bg-destructive/10 text-destructive rounded-md hover:bg-destructive/20"
+                      className="px-3 py-1.5 text-sm bg-destructive text-destructive-foreground rounded-md font-medium hover:opacity-90"
                     >
                       Delete
                     </button>
@@ -476,6 +487,12 @@ export default function HoloDeckConfigsPage() {
                   <div>
                     <p className="text-xs text-muted-foreground">Target Host</p>
                     <p className="font-medium font-mono text-xs">{config.targetHost}</p>
+                  </div>
+                )}
+                {config.targetDatastore && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Datastore</p>
+                    <p className="font-medium font-mono text-xs">{config.targetDatastore}</p>
                   </div>
                 )}
                 {config.vsanMode && (

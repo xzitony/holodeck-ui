@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { executeCommand } from "@/lib/ssh";
+import { prisma } from "@/lib/db";
 
 export async function GET(request: Request) {
   const user = await getUserFromRequest(request);
@@ -28,26 +29,22 @@ export async function GET(request: Request) {
       configs = parseTextOutput(stdout);
     }
 
-    // For configs with an Instance, fetch instance details to check for Site B
+    // Use stored instanceJson from DB to check for Site B (avoids extra SSH calls)
+    const dbConfigs = await prisma.holoDeckConfig.findMany({
+      select: { configId: true, instanceJson: true },
+    });
+    const instanceByConfig = new Map(
+      dbConfigs.map((c) => [c.configId, c.instanceJson])
+    );
+
     for (const cfg of configs) {
-      if (cfg.Instance) {
+      const configId = cfg.ConfigID || cfg.configId;
+      const storedInstance = configId ? instanceByConfig.get(configId) : null;
+
+      if (storedInstance) {
         try {
-          const instResult = await executeCommand(
-            `pwsh -NonInteractive -Command '$PSStyle.OutputRendering = "PlainText"; Get-HoloDeckInstance -InstanceID "${cfg.Instance}" | ConvertTo-Json -Depth 3'`,
-            undefined,
-            10000
-          );
-          const instOut = stripAnsi(instResult.stdout).trim();
-          try {
-            const inst = JSON.parse(instOut);
-            cfg.hasSiteB = inst.SiteB && Object.keys(inst.SiteB).length > 0 ? "true" : "false";
-          } catch {
-            // Try text parsing
-            const lines = instOut.split("\n").map((l: string) => l.trim());
-            const siteBLine = lines.find((l: string) => /^SiteB\s*:/.test(l));
-            const siteBValue = siteBLine?.replace(/^SiteB\s*:\s*/, "").trim() || "";
-            cfg.hasSiteB = siteBValue && siteBValue !== "" ? "true" : "false";
-          }
+          const inst = JSON.parse(storedInstance);
+          cfg.hasSiteB = inst.SiteB && (typeof inst.SiteB === "object" ? Object.keys(inst.SiteB).length > 0 : !!inst.SiteB) ? "true" : "false";
         } catch {
           cfg.hasSiteB = "false";
         }

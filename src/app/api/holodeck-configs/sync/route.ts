@@ -6,9 +6,10 @@ import { executeCommand } from "@/lib/ssh";
 /**
  * POST /api/holodeck-configs/sync — fetch configs from holorouter and sync local DB
  *
- * 1. Runs Get-HoloDeckConfig to list all configs
- * 2. For each config, runs Import-HoloDeckConfig to get full JSON
- * 3. Creates/updates local HoloDeckConfig records with cached JSON
+ * Three-phase sync:
+ *   Phase 1: Get-HoloDeckConfig — list all configs (includes Instance ID if deployed)
+ *   Phase 2: Import-HoloDeckConfig — fetch full config JSON for each
+ *   Phase 3: For configs with instances, read output.json + latest state file
  *
  * Any authenticated user can trigger a sync (read-only operation on the holorouter).
  */
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Step 1: Get list of all configs from holorouter
+    // Phase 1: List all configs from holorouter
     const listResult = await executeCommand(
       `pwsh -NonInteractive -Command '$PSStyle.OutputRendering = "PlainText"; Get-HoloDeckConfig | ConvertTo-Json -Depth 3'`,
       undefined,
@@ -36,7 +37,6 @@ export async function POST(request: Request) {
     }
 
     if (remoteConfigs.length === 0) {
-      // Clean up all local cached configs since holorouter has none
       const staleCount = await prisma.holoDeckConfig.count();
       if (staleCount > 0) {
         await prisma.holoDeckConfig.deleteMany();
@@ -51,13 +51,13 @@ export async function POST(request: Request) {
       });
     }
 
-    // Step 2: For each config, fetch full JSON via Import-HoloDeckConfig
-    const synced: Array<{ configId: string; description: string; hasInstance: boolean }> = [];
+    const synced: Array<{ configId: string; description: string; hasInstance: boolean; instanceStatus: string | null }> = [];
 
     for (const remoteCfg of remoteConfigs) {
       const configId = remoteCfg.ConfigID || remoteCfg.configId;
       if (!configId) continue;
 
+      // Phase 2: Import full config JSON
       let fullJson: string | null = null;
       try {
         const importResult = await executeCommand(
@@ -66,15 +66,64 @@ export async function POST(request: Request) {
           20000
         );
         const importOut = stripAnsi(importResult.stdout).trim();
-        // Verify it's valid JSON
         JSON.parse(importOut);
         fullJson = importOut;
       } catch {
-        // Can't import this config's JSON — store what we have from the list
         fullJson = JSON.stringify(remoteCfg);
       }
 
-      // Step 3: Upsert local record
+      // Phase 3: Check for deployed instance
+      // Instance ID comes from Get-HoloDeckConfig list output (remoteCfg),
+      // NOT from the imported config JSON — Instance is a runtime property.
+      const instanceId = remoteCfg.Instance || null;
+      let instanceJson: string | null = null;
+      let stateJson: string | null = null;
+
+      if (instanceId) {
+        // 3a: Read output.json — nodes, power state, reachability
+        try {
+          const outputResult = await executeCommand(
+            `cat /holodeck-runtime/output/${instanceId}.json`,
+            undefined,
+            10000
+          );
+          const outputOut = stripAnsi(outputResult.stdout).trim();
+          JSON.parse(outputOut);
+          instanceJson = outputOut;
+        } catch {
+          // output.json missing — fall back to Get-HoloDeckInstance
+          try {
+            const instResult = await executeCommand(
+              `pwsh -NonInteractive -Command '$PSStyle.OutputRendering = "PlainText"; Import-HoloDeckConfig -ConfigID "${configId}" | Out-Null; Get-HoloDeckInstance -InstanceID "${instanceId}" | ConvertTo-Json -Depth 10'`,
+              undefined,
+              20000
+            );
+            const instOut = stripAnsi(instResult.stdout).trim();
+            JSON.parse(instOut);
+            instanceJson = instOut;
+          } catch {
+            // Can't get instance data at all
+          }
+        }
+
+        // 3b: Read most recent state file — deployment execution tree
+        try {
+          const stateResult = await executeCommand(
+            `cat "$(ls -t /holodeck-runtime/state/holodeck-runtime-state_*.json 2>/dev/null | head -1)" 2>/dev/null`,
+            undefined,
+            10000
+          );
+          const stateOut = stripAnsi(stateResult.stdout).trim();
+          if (stateOut) {
+            JSON.parse(stateOut);
+            stateJson = stateOut;
+          }
+        } catch {
+          // No state file available
+        }
+      }
+
+      // Upsert local record
       const existing = await prisma.holoDeckConfig.findUnique({
         where: { configId },
       });
@@ -84,6 +133,8 @@ export async function POST(request: Request) {
           where: { configId },
           data: {
             cachedJson: fullJson,
+            instanceJson,
+            stateJson,
             lastSynced: new Date(),
           },
         });
@@ -93,15 +144,27 @@ export async function POST(request: Request) {
             configId,
             description: remoteCfg.Description || "",
             cachedJson: fullJson,
+            instanceJson,
+            stateJson,
             lastSynced: new Date(),
           },
         });
       }
 
+      let instanceStatus: string | null = null;
+      if (instanceJson) {
+        try {
+          instanceStatus = JSON.parse(instanceJson).Status || null;
+        } catch {
+          // ignore
+        }
+      }
+
       synced.push({
         configId,
         description: remoteCfg.Description || "",
-        hasInstance: !!remoteCfg.Instance,
+        hasInstance: !!instanceId,
+        instanceStatus,
       });
     }
 

@@ -6,6 +6,7 @@ import {
   getDefaultCapabilities,
   type Capabilities,
 } from "@/lib/capabilities";
+import { reconcileRunningJobs } from "@/lib/job-reconciler";
 
 type InstanceState = "not_deployed" | "deploying" | "running" | "failed" | "completed";
 
@@ -29,6 +30,9 @@ export async function GET(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Reconcile any stale "running" jobs before reading state
+  await reconcileRunningJobs();
 
   const [configs, jobs] = await Promise.all([
     prisma.holoDeckConfig.findMany({ orderBy: { configId: "asc" } }),
@@ -56,7 +60,6 @@ export async function GET(request: Request) {
 
   const instances = configs.map((c) => {
     let capabilities: Capabilities = getDefaultCapabilities();
-    let instance: string | undefined;
     let vcfVersion: string | undefined;
     let targetHost: string | undefined;
     let remoteDescription: string | undefined;
@@ -65,7 +68,6 @@ export async function GET(request: Request) {
       try {
         const json = JSON.parse(c.cachedJson);
         capabilities = extractCapabilities(json);
-        if (json.Instance) instance = json.Instance;
         vcfVersion = json.VCFVersion || json.Version;
         if (json.Target?.hostname) targetHost = json.Target.hostname;
         if (json.TargetHost) targetHost = json.TargetHost;
@@ -75,15 +77,50 @@ export async function GET(request: Request) {
       }
     }
 
+    // Instance data comes from output.json (set during sync), NOT from config JSON.
+    // The Instance ID is a runtime property only present in Get-HoloDeckConfig list output.
+    let instance: string | undefined;
+    let instanceStatus: string | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let nodes: any[] | undefined;
+    if (c.instanceJson) {
+      try {
+        const instData = JSON.parse(c.instanceJson);
+        instance = instData.InstanceID;
+        instanceStatus = instData.Status;
+        const allNodes = [
+          ...(instData.SiteA?.Nodes || []),
+          ...(instData.SiteB?.Nodes || []),
+        ];
+        if (allNodes.length > 0) nodes = allNodes;
+      } catch {
+        // ignore
+      }
+    }
+
+    // Parse deployment execution state from state file
+    let deploymentState: string | undefined;
+    if (c.stateJson) {
+      try {
+        const stateData = JSON.parse(c.stateJson);
+        deploymentState = stateData["New-HoloDeckInstance"]?.status;
+      } catch {
+        // ignore
+      }
+    }
+
     const configJobs = jobsByConfig.get(c.configId) || [];
     const runningJobs = configJobs.filter((j) => j.status === "running");
+    const runningDay2Jobs = runningJobs.filter((j) => j.mode.startsWith("day2-"));
+    const runningDeployJobs = runningJobs.filter((j) => !j.mode.startsWith("day2-"));
     const mostRecentJob = configJobs[0]; // already sorted desc
 
-    // Compute state
+    // Compute state using validated instance status from Get-HoloDeckInstance
     let state: InstanceState = "not_deployed";
-    if (instance) {
-      state = "running";
-    } else if (runningJobs.length > 0) {
+    if (instance && instanceStatus) {
+      // Instance exists and was validated — use the real status
+      state = instanceStatus.toLowerCase() === "completed" ? "running" : "deploying";
+    } else if (runningDeployJobs.length > 0) {
       state = "deploying";
     } else if (mostRecentJob) {
       if (mostRecentJob.status === "failed") state = "failed";
@@ -92,11 +129,26 @@ export async function GET(request: Request) {
 
     // Build job summaries
     let activeJob: JobSummary | undefined;
+    let activeDay2Job: JobSummary | undefined;
     let lastJob: JobSummary | undefined;
 
-    if (runningJobs.length > 0) {
-      const j = runningJobs[0];
+    // Active deployment job (non-Day2)
+    if (runningDeployJobs.length > 0) {
+      const j = runningDeployJobs[0];
       activeJob = {
+        id: j.id,
+        name: j.name,
+        status: j.status,
+        startedAt: j.startedAt.toISOString(),
+        completedAt: null,
+        userName: j.user.displayName,
+      };
+    }
+
+    // Active Day 2 job (shown separately so running instances can display it)
+    if (runningDay2Jobs.length > 0) {
+      const j = runningDay2Jobs[0];
+      activeDay2Job = {
         id: j.id,
         name: j.name,
         status: j.status,
@@ -124,11 +176,15 @@ export async function GET(request: Request) {
       lastSynced: c.lastSynced,
       capabilities,
       instance,
+      instanceStatus,
+      deploymentState,
+      nodes,
       vcfVersion,
       targetHost,
       remoteDescription,
       state,
       activeJob,
+      activeDay2Job,
       lastJob,
       jobCount: configJobs.length,
     };

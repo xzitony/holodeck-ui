@@ -32,6 +32,18 @@
       }
     },
     "schemas": {
+      "InstanceNode": {
+        "type": "object",
+        "description": "A deployed node from a HoloDeck instance (ESXi host, VCF installer, Aria appliance, etc.)",
+        "properties": {
+          "Name": { "type": "string", "description": "Node name (e.g. 20260331-esx-01a)" },
+          "IPAddress": { "type": "string", "description": "Node IP address" },
+          "PowerState": { "type": "string", "description": "VM power state (e.g. PoweredOn, PoweredOff)" },
+          "IsReachable": { "type": "boolean", "description": "Whether the node is network-reachable" },
+          "Type": { "type": "integer", "description": "Node type identifier" },
+          "VIDomain": { "type": "integer", "description": "VI domain identifier" }
+        }
+      },
       "User": {
         "type": "object",
         "properties": {
@@ -559,7 +571,7 @@
       "post": {
         "tags": ["Holodeck Configs"],
         "summary": "Sync configs from holorouter",
-        "description": "Fetches all configs from the holorouter via Get-HoloDeckConfig and Import-HoloDeckConfig, then updates the local DB cache. Any authenticated user can trigger this.",
+        "description": "Three-phase sync from holorouter: (1) Get-HoloDeckConfig to list configs, (2) Import-HoloDeckConfig for full config JSON, (3) for configs with instances, reads /holodeck-runtime/output/<instanceId>.json for node/power state and the latest /holodeck-runtime/state/ file for the deployment execution tree.",
         "responses": {
           "200": {
             "description": "Sync result",
@@ -577,7 +589,8 @@
                         "properties": {
                           "configId": { "type": "string" },
                           "description": { "type": "string" },
-                          "hasInstance": { "type": "boolean" }
+                          "hasInstance": { "type": "boolean" },
+                          "instanceStatus": { "type": "string", "nullable": true, "description": "Instance status from output.json (e.g. Completed)" }
                         }
                       }
                     }
@@ -635,10 +648,10 @@
       "get": {
         "tags": ["Holodeck Configs"],
         "summary": "Fast cached instances endpoint",
-        "description": "Returns all configs with pre-computed capabilities from the local DB cache. No SSH calls — instant response. Includes a 'stale' flag when cache is older than 5 minutes.",
+        "description": "Returns all configs with pre-computed capabilities from the local DB cache. No SSH calls — instant response. Includes validated instance data (nodes, power state, deployment state) from output.json and state files cached during sync.",
         "responses": {
           "200": {
-            "description": "Cached configs with capabilities",
+            "description": "Cached configs with capabilities and instance data",
             "content": {
               "application/json": {
                 "schema": {
@@ -652,7 +665,14 @@
                           {
                             "type": "object",
                             "properties": {
-                              "capabilities": { "$ref": "#/components/schemas/Capabilities" }
+                              "capabilities": { "$ref": "#/components/schemas/Capabilities" },
+                              "instanceStatus": { "type": "string", "description": "Instance status from output.json (e.g. Completed)" },
+                              "deploymentState": { "type": "string", "description": "Top-level deployment status from state file (e.g. Success)" },
+                              "nodes": {
+                                "type": "array",
+                                "description": "All deployed nodes from SiteA + SiteB with power state and reachability",
+                                "items": { "$ref": "#/components/schemas/InstanceNode" }
+                              }
                             }
                           }
                         ]
@@ -1175,10 +1195,10 @@
       "get": {
         "tags": ["Instances"],
         "summary": "List all configs with deployment state",
-        "description": "Returns each HoloDeckConfig merged with its BackgroundJob status. Each config has a computed state: not_deployed, deploying, running, completed, or failed.",
+        "description": "Returns each HoloDeckConfig merged with its BackgroundJob status and validated instance data from output.json and state files. Instance detection uses the real Status from Get-HoloDeckInstance output, not the config JSON. Automatically reconciles stale running jobs by checking tmux session liveness (throttled to once per 10s).",
         "responses": {
           "200": {
-            "description": "Merged instance list",
+            "description": "Merged instance list with node and deployment data",
             "content": {
               "application/json": {
                 "schema": {
@@ -1205,7 +1225,14 @@
                               "hasWorkloadDomain": { "type": "boolean" }
                             }
                           },
-                          "instance": { "type": "string", "description": "Instance ID if deployed" },
+                          "instance": { "type": "string", "description": "Instance ID from output.json (only set if validated)" },
+                          "instanceStatus": { "type": "string", "description": "Instance status from output.json (e.g. Completed)" },
+                          "deploymentState": { "type": "string", "description": "Top-level deployment status from state file (e.g. Success)" },
+                          "nodes": {
+                            "type": "array",
+                            "description": "All deployed nodes from SiteA + SiteB",
+                            "items": { "$ref": "#/components/schemas/InstanceNode" }
+                          },
                           "vcfVersion": { "type": "string" },
                           "targetHost": { "type": "string" },
                           "remoteDescription": { "type": "string" },
@@ -1213,6 +1240,20 @@
                           "activeJob": {
                             "type": "object",
                             "nullable": true,
+                            "description": "Currently running deployment job (non-Day 2)",
+                            "properties": {
+                              "id": { "type": "string" },
+                              "name": { "type": "string" },
+                              "status": { "type": "string" },
+                              "startedAt": { "type": "string", "format": "date-time" },
+                              "completedAt": { "type": "string", "format": "date-time", "nullable": true },
+                              "userName": { "type": "string" }
+                            }
+                          },
+                          "activeDay2Job": {
+                            "type": "object",
+                            "nullable": true,
+                            "description": "Currently running Day 2 operation job, shown separately so running instances can display it",
                             "properties": {
                               "id": { "type": "string" },
                               "name": { "type": "string" },
@@ -1252,6 +1293,7 @@
       "get": {
         "tags": ["Deployments"],
         "summary": "List all deployment jobs",
+        "description": "Lists all background jobs (deployments and Day 2 ops). Automatically reconciles stale running jobs by checking tmux session liveness before returning results.",
         "responses": {
           "200": {
             "description": "Job list",
@@ -1428,9 +1470,10 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["operation"],
+                "required": ["operation", "configId"],
                 "properties": {
                   "operation": { "type": "string", "enum": ["add-cluster", "add-esxi-nodes", "add-vcf-automation"] },
+                  "configId": { "type": "string", "description": "Target Holodeck config ID" },
                   "site": { "type": "string", "enum": ["a", "b"], "default": "a" },
                   "domain": { "type": "string", "enum": ["Management", "Workload"], "description": "Required for add-cluster and add-vcf-automation" },
                   "count": { "type": "integer", "minimum": 1, "description": "Required for add-esxi-nodes" }
@@ -1456,7 +1499,8 @@
             }
           },
           "400": { "description": "Invalid operation or missing parameters" },
-          "403": { "description": "Insufficient role or no reservation" }
+          "403": { "description": "Insufficient role or no reservation" },
+          "409": { "description": "A Day 2 operation is already running — only one can run at a time" }
         }
       }
     },

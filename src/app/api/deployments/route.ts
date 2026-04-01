@@ -8,6 +8,7 @@ import {
   killTmuxSession,
 } from "@/lib/ssh";
 import { checkReservationAccess } from "@/lib/reservation-guard";
+import { reconcileRunningJobs } from "@/lib/job-reconciler";
 
 /**
  * GET /api/deployments — list all background jobs
@@ -17,6 +18,9 @@ export async function GET(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Reconcile any stale "running" jobs before listing
+  await reconcileRunningJobs();
 
   const jobs = await prisma.backgroundJob.findMany({
     orderBy: { startedAt: "desc" },

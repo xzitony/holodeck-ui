@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { useReservation } from "@/hooks/use-reservation";
 import { CommandPreview } from "@/components/ui/command-preview";
@@ -44,12 +45,13 @@ const operations: Record<
 
 export default function Day2OpsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { reservation } = useReservation();
 
-  // Instance selection
+  // Instance selection — pre-select from query param if provided
   const [configs, setConfigs] = useState<CachedInstance[]>([]);
-  const [selectedConfigId, setSelectedConfigId] = useState("");
+  const [selectedConfigId, setSelectedConfigId] = useState(searchParams.get("configId") || "");
   const [loadingConfigs, setLoadingConfigs] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const hasAutoRefreshed = useRef(false);
@@ -59,10 +61,16 @@ export default function Day2OpsPage() {
   const [selected, setSelected] = useState<Day2Operation | null>(null);
   const [site, setSite] = useState("a");
   const [domain, setDomain] = useState("Management");
-  const [count, setCount] = useState("3");
+  const [useCustomSpecs, setUseCustomSpecs] = useState(false);
+  const [nodes, setNodes] = useState("1");
+  const [cpu, setCpu] = useState("12");
+  const [memoryGb, setMemoryGb] = useState("96");
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
   const [sshConfigured, setSshConfigured] = useState<boolean | null>(null);
+
+  // Lockout: track running Day 2 jobs
+  const [runningDay2Job, setRunningDay2Job] = useState<{ id: string; name: string; startedAt: string } | null>(null);
 
   const instances = configs.filter((c) => c.instance);
   const selectedConfig = configs.find((c) => c.configId === selectedConfigId);
@@ -73,6 +81,26 @@ export default function Day2OpsPage() {
       .then((data) => setSshConfigured(data.configured))
       .catch(() => setSshConfigured(false));
   }, []);
+
+  // Check for running Day 2 jobs (lockout)
+  const checkDay2Lock = useCallback(async () => {
+    try {
+      const res = await fetch("/api/deployments");
+      const data = await res.json();
+      const running = (data.jobs || []).find(
+        (j: { mode: string; status: string }) => j.mode.startsWith("day2-") && j.status === "running"
+      );
+      setRunningDay2Job(running ? { id: running.id, name: running.name, startedAt: running.startedAt } : null);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    checkDay2Lock();
+    const interval = setInterval(checkDay2Lock, 10000);
+    return () => clearInterval(interval);
+  }, [checkDay2Lock]);
 
   // Load instances from cache
   const loadConfigs = useCallback(async () => {
@@ -145,11 +173,13 @@ export default function Day2OpsPage() {
         configId: selectedConfigId,
       };
 
-      if (selected === "add-cluster" || selected === "add-vcf-automation") {
-        body.domain = domain;
-      }
+      body.domain = domain;
       if (selected === "add-esxi-nodes") {
-        body.count = parseInt(count, 10);
+        body.nodes = parseInt(nodes, 10);
+        if (useCustomSpecs) {
+          body.cpu = parseInt(cpu, 10);
+          body.memoryGb = parseInt(memoryGb, 10);
+        }
       }
 
       const res = await fetch("/api/day2", {
@@ -179,8 +209,13 @@ export default function Day2OpsPage() {
     switch (selected) {
       case "add-cluster":
         return `${configPrefix}Update-HoloDeckInstance -Site '${site}' -AdditionalCluster -VIDomain '${domain}'`;
-      case "add-esxi-nodes":
-        return `${configPrefix}New-HoloDeckESXiNodes -Count ${count}`;
+      case "add-esxi-nodes": {
+        const base = `${configPrefix}New-HoloDeckESXiNodes -VIDomain '${domain}' -site '${site}'`;
+        if (useCustomSpecs) {
+          return `${base} -CPU ${cpu} -MemoryInGb ${memoryGb} -Nodes ${nodes}`;
+        }
+        return `${base} -Nodes ${nodes}`;
+      }
       case "add-vcf-automation":
         return `${configPrefix}Update-HoloDeckInstance -Site '${site}' -AddVcfAutomationAllAppsOrg -VIDomain '${domain}'`;
     }
@@ -231,6 +266,24 @@ export default function Day2OpsPage() {
       {error && (
         <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
           {error}
+        </div>
+      )}
+
+      {/* Day 2 lockout banner */}
+      {runningDay2Job && (
+        <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-1">
+          <p className="text-sm font-medium text-amber-400">
+            A Day 2 operation is already running
+          </p>
+          <p className="text-sm text-muted-foreground">
+            &quot;{runningDay2Job.name}&quot; is in progress. Only one Day 2 operation can run at a time.
+          </p>
+          <Link
+            href={`/dashboard/deployments/${runningDay2Job.id}`}
+            className="inline-block text-xs text-amber-400 hover:underline mt-1"
+          >
+            View running operation →
+          </Link>
         </div>
       )}
 
@@ -334,55 +387,91 @@ export default function Day2OpsPage() {
             <div className="space-y-4">
               <h2 className="font-semibold text-lg">Parameters</h2>
               <div className="bg-card border border-border rounded-lg p-4 space-y-4">
-                {/* Site selector - shown for cluster and automation */}
-                {(selected === "add-cluster" ||
-                  selected === "add-vcf-automation") && (
+                {/* Site selector - all operations need this */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Site</label>
+                  <select
+                    value={site}
+                    onChange={(e) => setSite(e.target.value)}
+                    className="w-full px-3 py-2 bg-input border border-border rounded-md"
+                  >
+                    <option value="a">Site A</option>
+                    <option value="b">Site B</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    VI Domain
+                  </label>
+                  <select
+                    value={domain}
+                    onChange={(e) => setDomain(e.target.value)}
+                    className="w-full px-3 py-2 bg-input border border-border rounded-md"
+                  >
+                    <option value="Management">Management</option>
+                    <option value="Workload">Workload</option>
+                  </select>
+                </div>
+
+                {/* ESXi node options */}
+                {selected === "add-esxi-nodes" && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium mb-1">Site</label>
-                      <select
-                        value={site}
-                        onChange={(e) => setSite(e.target.value)}
+                      <label className="block text-sm font-medium mb-1">Number of Nodes</label>
+                      <input
+                        type="number"
+                        value={nodes}
+                        onChange={(e) => setNodes(e.target.value)}
+                        min="1"
+                        max="20"
                         className="w-full px-3 py-2 bg-input border border-border rounded-md"
-                      >
-                        <option value="a">Site A</option>
-                        <option value="b">Site B</option>
-                      </select>
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Each node takes approximately 30-60 minutes to deploy.
+                      </p>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        VI Domain
+                    <div className="flex items-center gap-2 pt-2">
+                      <input
+                        type="checkbox"
+                        id="customSpecs"
+                        checked={useCustomSpecs}
+                        onChange={(e) => setUseCustomSpecs(e.target.checked)}
+                        className="rounded"
+                      />
+                      <label htmlFor="customSpecs" className="text-sm font-medium">
+                        Custom hardware specs
                       </label>
-                      <select
-                        value={domain}
-                        onChange={(e) => setDomain(e.target.value)}
-                        className="w-full px-3 py-2 bg-input border border-border rounded-md"
-                      >
-                        <option value="Management">Management</option>
-                        <option value="Workload">Workload</option>
-                      </select>
+                      <span className="text-xs text-muted-foreground">
+                        (override CPU and memory from config)
+                      </span>
                     </div>
+                    {useCustomSpecs && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">vCPUs</label>
+                          <input
+                            type="number"
+                            value={cpu}
+                            onChange={(e) => setCpu(e.target.value)}
+                            min="2"
+                            max="64"
+                            className="w-full px-3 py-2 bg-input border border-border rounded-md"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Memory (GB)</label>
+                          <input
+                            type="number"
+                            value={memoryGb}
+                            onChange={(e) => setMemoryGb(e.target.value)}
+                            min="8"
+                            max="512"
+                            className="w-full px-3 py-2 bg-input border border-border rounded-md"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </>
-                )}
-
-                {/* Node count - shown for ESXi nodes */}
-                {selected === "add-esxi-nodes" && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Number of Nodes
-                    </label>
-                    <input
-                      type="number"
-                      value={count}
-                      onChange={(e) => setCount(e.target.value)}
-                      min="1"
-                      max="20"
-                      className="w-full px-3 py-2 bg-input border border-border rounded-md"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Each node takes approximately 30-60 minutes to deploy.
-                    </p>
-                  </div>
                 )}
               </div>
 
@@ -404,11 +493,13 @@ export default function Day2OpsPage() {
               <div className="flex justify-end">
                 <button
                   onClick={handleLaunch}
-                  disabled={launching || needsReservation}
+                  disabled={launching || needsReservation || !!runningDay2Job}
                   className="px-6 py-2 bg-success text-white rounded-md font-medium hover:opacity-90 disabled:opacity-50"
                 >
                   {launching
                     ? "Starting..."
+                    : runningDay2Job
+                    ? "Day 2 Op In Progress"
                     : needsReservation
                     ? "Reservation Required"
                     : `Launch ${operations[selected].label}`}

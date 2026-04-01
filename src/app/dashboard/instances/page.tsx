@@ -37,6 +37,7 @@ interface Instance {
   remoteDescription?: string;
   state: InstanceState;
   activeJob?: JobSummary;
+  activeDay2Job?: JobSummary;
   lastJob?: JobSummary;
   jobCount: number;
 }
@@ -291,6 +292,25 @@ export default function InstancesPage() {
                   </Link>
                 )}
 
+                {/* Active Day 2 Operation (shown on running instances) */}
+                {inst.activeDay2Job && (
+                  <Link
+                    href={`/dashboard/deployments/${inst.activeDay2Job.id}`}
+                    className="flex items-center justify-between p-3 rounded-md bg-amber-500/5 border border-amber-500/20 hover:border-amber-500/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      <span className="text-sm">
+                        {inst.activeDay2Job.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        — <Elapsed since={inst.activeDay2Job.startedAt} /> elapsed
+                      </span>
+                    </div>
+                    <span className="text-xs text-amber-400">View Output →</span>
+                  </Link>
+                )}
+
                 {/* Last Job (completed/failed) */}
                 {inst.state !== "deploying" && inst.lastJob && (
                   <Link
@@ -330,19 +350,29 @@ export default function InstancesPage() {
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-1">
                   {inst.state === "running" && (
-                    <Link
-                      href="/dashboard/environment"
-                      className="text-xs px-3 py-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                    >
-                      Environment Links
-                    </Link>
+                    <>
+                      <Link
+                        href="/dashboard/environment"
+                        className="text-xs px-3 py-1.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                      >
+                        Environment Links
+                      </Link>
+                      {isAdmin && (
+                        <Link
+                          href={`/dashboard/day2?configId=${inst.configId}`}
+                          className="text-xs px-3 py-1.5 rounded-md bg-amber-600/10 text-amber-500 hover:bg-amber-600/20 transition-colors"
+                        >
+                          Day 2 Ops
+                        </Link>
+                      )}
+                    </>
                   )}
-                  {isAdmin && inst.state !== "deploying" && (
+                  {isAdmin && inst.state !== "deploying" && inst.state !== "running" && (
                     <Link
                       href={`/dashboard/deploy?configId=${inst.configId}`}
                       className="text-xs px-3 py-1.5 rounded-md bg-secondary text-secondary-foreground hover:opacity-90 transition-colors"
                     >
-                      {inst.state === "running" ? "Redeploy" : inst.state === "failed" ? "Retry" : "Deploy"}
+                      {inst.state === "failed" ? "Retry" : "Deploy"}
                     </Link>
                   )}
                 </div>

@@ -757,7 +757,7 @@ export default function DeployPage() {
               <button
                 onClick={() => selectedConfigId && fetchInventory(selectedConfigId)}
                 disabled={loadingInventory || !selectedConfigId}
-                className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded-md hover:opacity-90 disabled:opacity-50"
+                className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md font-medium hover:opacity-90 disabled:opacity-50"
               >
                 {loadingInventory ? "Loading Inventory..." : inventory ? "Refresh Inventory" : "Load VMware Inventory"}
               </button>

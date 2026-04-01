@@ -11,7 +11,10 @@ import { checkReservationAccess } from "@/lib/reservation-guard";
  *   operation: "add-cluster" | "add-esxi-nodes" | "add-vcf-automation",
  *   site?: "a" | "b",
  *   domain?: "Management" | "Workload",
- *   count?: number,  // for add-esxi-nodes
+ *   // For add-esxi-nodes custom specs:
+ *   nodes?: number,
+ *   cpu?: number,
+ *   memoryGb?: number,
  * }
  */
 export async function POST(request: Request) {
@@ -35,7 +38,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { operation, site = "a", domain, count, configId } = body;
+  const { operation, site = "a", domain, nodes, cpu, memoryGb, configId } = body;
 
   if (!operation) {
     return NextResponse.json({ error: "operation is required" }, { status: 400 });
@@ -43,6 +46,21 @@ export async function POST(request: Request) {
 
   if (!configId) {
     return NextResponse.json({ error: "configId is required — select a target instance" }, { status: 400 });
+  }
+
+  // Lock out: only one Day 2 operation can run at a time
+  const runningDay2 = await prisma.backgroundJob.findFirst({
+    where: {
+      mode: { startsWith: "day2-" },
+      status: "running",
+    },
+    orderBy: { startedAt: "desc" },
+  });
+  if (runningDay2) {
+    return NextResponse.json(
+      { error: `A Day 2 operation is already running: "${runningDay2.name}". Wait for it to finish before starting another.` },
+      { status: 409 }
+    );
   }
 
   // Validate inputs per operation
@@ -59,12 +77,35 @@ export async function POST(request: Request) {
       break;
     }
     case "add-esxi-nodes": {
-      const nodeCount = parseInt(count, 10);
-      if (!nodeCount || nodeCount < 1) {
-        return NextResponse.json({ error: "count must be a positive number" }, { status: 400 });
+      if (!domain) {
+        return NextResponse.json({ error: "domain is required for add-esxi-nodes" }, { status: 400 });
       }
-      command = `New-HoloDeckESXiNodes -Count ${nodeCount}`;
-      jobName = `Add ${nodeCount} ESXi Node${nodeCount > 1 ? "s" : ""}`;
+      const nodeCount = nodes ? parseInt(nodes, 10) : 1;
+      if (nodeCount < 1) {
+        return NextResponse.json({ error: "nodes must be a positive number" }, { status: 400 });
+      }
+      // Custom hardware specs: use the custom parameter set with CPU/Memory/Nodes
+      if (cpu && memoryGb) {
+        command = `New-HoloDeckESXiNodes -VIDomain '${domain}' -site '${site}' -CPU ${parseInt(cpu, 10)} -MemoryInGb ${parseInt(memoryGb, 10)} -Nodes ${nodeCount}`;
+        jobName = `Add ${nodeCount} ESXi Node${nodeCount > 1 ? "s" : ""} (${domain}, Site ${site.toUpperCase()}, ${cpu} CPU / ${memoryGb}GB)`;
+      } else {
+        // Standard specs from config — read CPU/memory from cached config JSON
+        const holoConfig = await prisma.holoDeckConfig.findUnique({ where: { configId } });
+        let cfgCpu = 12;
+        let cfgMem = 96;
+        if (holoConfig?.cachedJson) {
+          try {
+            const json = JSON.parse(holoConfig.cachedJson);
+            const siteKey = site === "b" ? "Site-B" : "Site-A";
+            const domainKey = domain.toLowerCase() === "management" ? "management" : "workload";
+            const esxiSpec = json["holodeck-sddc"]?.[siteKey]?.[domainKey]?.esxi;
+            if (esxiSpec?.cpu) cfgCpu = esxiSpec.cpu;
+            if (esxiSpec?.memory) cfgMem = esxiSpec.memory;
+          } catch { /* use defaults */ }
+        }
+        command = `New-HoloDeckESXiNodes -VIDomain '${domain}' -site '${site}' -CPU ${cfgCpu} -MemoryInGb ${cfgMem} -Nodes ${nodeCount}`;
+        jobName = `Add ${nodeCount} ESXi Node${nodeCount > 1 ? "s" : ""} (${domain}, Site ${site.toUpperCase()})`;
+      }
       break;
     }
     case "add-vcf-automation": {
@@ -118,7 +159,9 @@ export async function POST(request: Request) {
           jobName,
           site,
           domain,
-          count,
+          nodes,
+          cpu,
+          memoryGb,
         }),
         status: "success",
       },

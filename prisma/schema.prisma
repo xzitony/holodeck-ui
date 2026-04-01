@@ -93,6 +93,7 @@ model HoloDeckConfig {
   notes       String?  // Admin notes
   lastSynced  DateTime? // Last time we fetched this config's JSON from holorouter
   cachedJson  String?  // Cached full config JSON from Import-HoloDeckConfig
+  instanceJson String? // Instance state JSON from output.json
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

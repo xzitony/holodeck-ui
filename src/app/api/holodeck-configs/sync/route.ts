@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       let fullJson: string | null = null;
       try {
         const importResult = await executeCommand(
-          `pwsh -NonInteractive -Command '$PSStyle.OutputRendering = "PlainText"; Import-HoloDeckConfig -ConfigID "${configId}" | Out-Null; $config | ConvertTo-Json -Depth 100'`,
+          `pwsh -NonInteractive -Command '$PSStyle.OutputRendering = "PlainText"; Import-HoloDeckConfig -ConfigID "${configId}" -Site "a" | Out-Null; $config | ConvertTo-Json -Depth 100'`,
           undefined,
           20000
         );
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
           // output.json missing — fall back to Get-HoloDeckInstance
           try {
             const instResult = await executeCommand(
-              `pwsh -NonInteractive -Command '$PSStyle.OutputRendering = "PlainText"; Import-HoloDeckConfig -ConfigID "${configId}" | Out-Null; Get-HoloDeckInstance -InstanceID "${instanceId}" | ConvertTo-Json -Depth 10'`,
+              `pwsh -NonInteractive -Command '$PSStyle.OutputRendering = "PlainText"; Import-HoloDeckConfig -ConfigID "${configId}" -Site "a" | Out-Null; Get-HoloDeckInstance -InstanceID "${instanceId}" | ConvertTo-Json -Depth 10'`,
               undefined,
               20000
             );

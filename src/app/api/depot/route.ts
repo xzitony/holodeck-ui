@@ -298,7 +298,7 @@ export async function POST(request: Request) {
   const versionRow = await prisma.globalConfig.findUnique({
     where: { key: "vcf_version" },
   });
-  const vcfVersion = body.vcfVersion || versionRow?.value || "9.0.2.0";
+  const vcfVersion = body.vcfVersion || versionRow?.value || "9.1.0.0";
 
   // Validate version format
   if (!/^[\d.]+$/.test(vcfVersion)) {

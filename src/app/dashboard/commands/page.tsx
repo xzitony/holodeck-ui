@@ -263,7 +263,7 @@ export default function CommandsPage() {
     });
     // Prepend config import if needed
     if (needsConfig(selected) && activeConfigId) {
-      resolved = `Import-HoloDeckConfig -ConfigID '${activeConfigId}' | Out-Null; ${resolved}`;
+      resolved = `Import-HoloDeckConfig -ConfigID '${activeConfigId}' -Site 'a' | Out-Null; ${resolved}`;
     }
     return resolved.trim();
   };

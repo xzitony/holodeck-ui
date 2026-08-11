@@ -172,7 +172,7 @@ export async function POST(request: Request) {
   // Config JSON takes priority, then user-provided values, then global config
   const resolvedVersion = version
     || (configJson.VCFVersion as string) || (configJson.Version as string)
-    || gcMap.get("vcf_version") || "9.0.2.0"; // fallback to latest known version
+    || gcMap.get("vcf_version") || "9.1.0.0"; // fallback to latest known version
   const resolvedVsanMode = vsanMode
     || (configJson.vSANMode as string)
     || gcMap.get("default_vsan_mode") || "ESA";
@@ -187,7 +187,7 @@ export async function POST(request: Request) {
   const envBlock = await buildDeveloperModeEnvBlock(site as "a" | "b", infraOverrides);
 
   // Import the existing config, then build New-HoloDeckInstance command
-  const importCmd = `Import-HoloDeckConfig -ConfigID '${configId}' | Out-Null`;
+  const importCmd = `Import-HoloDeckConfig -ConfigID '${configId}' -Site '${site}' | Out-Null`;
 
   const params: string[] = [
     `-Version '${resolvedVersion}'`,

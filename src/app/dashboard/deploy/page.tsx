@@ -31,7 +31,7 @@ const modeDescriptions: Record<DeployMode, { label: string; description: string;
   },
 };
 
-const vcfVersions = ["9.0.2.0", "9.0.1.0", "9.0.0.0", "5.2.2", "5.2.1", "5.2"];
+const vcfVersions = ["9.1.0.0", "9.0.2.0", "9.0.1.0", "9.0.0.0"];
 const latestVersion = vcfVersions[0];
 const vsanModes = ["ESA", "OSA"];
 const logLevels = ["INFO", "DEBUG", "SUCCESS", "WARN", "ERROR"];
@@ -296,7 +296,7 @@ export default function DeployPage() {
     if (envLines.length > 0) lines.push(envLines.join("\n"));
 
     if (selectedConfigId) {
-      lines.push(`Import-HoloDeckConfig -ConfigID '${selectedConfigId}'`);
+      lines.push(`Import-HoloDeckConfig -ConfigID '${selectedConfigId}' -Site '${params.site}'`);
     }
     const parts = ["New-HoloDeckInstance"];
     if (params.version) parts.push(`-Version '${params.version}'`);

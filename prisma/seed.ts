@@ -72,7 +72,7 @@ async function main() {
     { key: "offline_depot_protocol", value: "https", description: "Offline depot protocol (http/https)", sensitive: false },
     { key: "online_depot_token", value: "", description: "Broadcom download token", sensitive: true },
     { key: "depot_type", value: "Offline", description: "Depot type (Online/Offline)", sensitive: false },
-    { key: "vcf_version", value: "9.0.2.0", description: "VCF version to deploy", sensitive: false },
+    { key: "vcf_version", value: "9.1.0.0", description: "VCF version to deploy", sensitive: false },
     { key: "default_vsan_mode", value: "ESA", description: "Default vSAN mode (ESA/OSA)", sensitive: false },
     { key: "default_dns_domain", value: "vcf.lab", description: "Default DNS domain for deployments", sensitive: false },
     { key: "depot_ssh_port", value: "22", description: "Depot appliance SSH port (uses Offline Depot IP as host)", sensitive: false },

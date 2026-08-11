@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       if (!/^[a-zA-Z0-9._-]+$/.test(configId)) {
         throw new Error("Invalid config ID format");
       }
-      fullCommand = `Import-HoloDeckConfig -ConfigID '${configId}' | Out-Null; ${rawCommand}`;
+      fullCommand = `Import-HoloDeckConfig -ConfigID '${configId}' -Site 'a' | Out-Null; ${rawCommand}`;
     }
     // Wrap in pwsh -NonInteractive, with PlainText rendering to suppress ANSI codes
     const escapedForBash = fullCommand.replace(/'/g, "'\\''");

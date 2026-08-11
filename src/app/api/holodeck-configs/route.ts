@@ -218,7 +218,7 @@ export async function POST(request: Request) {
     if (newConfigId) {
       try {
         const importResult = await executeCommand(
-          `pwsh -NonInteractive -Command '$PSStyle.OutputRendering = "PlainText"; Import-HoloDeckConfig -ConfigID "${newConfigId}" | Out-Null; $config | ConvertTo-Json -Depth 100'`,
+          `pwsh -NonInteractive -Command '$PSStyle.OutputRendering = "PlainText"; Import-HoloDeckConfig -ConfigID "${newConfigId}" -Site "a" | Out-Null; $config | ConvertTo-Json -Depth 100'`,
           undefined,
           20000
         );

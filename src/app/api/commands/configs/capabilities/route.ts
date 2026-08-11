@@ -51,7 +51,7 @@ export async function GET(request: Request) {
   // Live fetch from holorouter
   try {
     const result = await executeCommand(
-      `pwsh -NonInteractive -Command '$PSStyle.OutputRendering = "PlainText"; Import-HoloDeckConfig -ConfigID "${configId}" | Out-Null; $config | ConvertTo-Json -Depth 100'`,
+      `pwsh -NonInteractive -Command '$PSStyle.OutputRendering = "PlainText"; Import-HoloDeckConfig -ConfigID "${configId}" -Site "a" | Out-Null; $config | ConvertTo-Json -Depth 100'`,
       undefined,
       20000
     );

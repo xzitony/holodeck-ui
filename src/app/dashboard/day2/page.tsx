@@ -206,7 +206,7 @@ export default function Day2OpsPage() {
   const buildCommandPreview = (): string => {
     if (!selected) return "";
     const configPrefix = selectedConfigId
-      ? `Import-HoloDeckConfig -ConfigID '${selectedConfigId}'; `
+      ? `Import-HoloDeckConfig -ConfigID '${selectedConfigId}' -Site '${site}'; `
       : "";
     switch (selected) {
       case "add-cluster":

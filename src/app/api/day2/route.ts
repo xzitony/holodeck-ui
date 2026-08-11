@@ -126,7 +126,7 @@ export async function POST(request: Request) {
 
     // Load the target config on the holorouter first
     const escapedConfigId = configId.replace(/"/g, '`"');
-    const importCmd = `Import-HoloDeckConfig -ConfigID "${escapedConfigId}"`;
+    const importCmd = `Import-HoloDeckConfig -ConfigID "${escapedConfigId}" -Site "${site}"`;
 
     // Full script: set env vars → load config → run command
     const fullScript = [envBlock, importCmd, command].filter(Boolean).join("; ");

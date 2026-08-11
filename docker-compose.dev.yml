@@ -1,12 +1,18 @@
 ## Dev compose file — pulls the floating :dev image (rebuilt on every push to the dev branch)
+## No Caddy/TLS here — published directly over HTTP on a non-3000 port so it can run
+## side-by-side with a prod stack on the same host without colliding.
+##
 ## Usage:
 ##   1. Paste this into Portainer Stacks
 ##   2. Set environment variables below
 ##   3. Deploy
-##   4. To pick up a new push to dev: re-pull and redeploy the stack (Portainer: "Pull and redeploy")
+##   4. Visit http://<host>:${APP_PORT:-3001}
+##   5. To pick up a new push to dev: re-pull and redeploy the stack (Portainer: "Pull and redeploy")
 ##
 ## Required env vars:
 ##   JWT_SECRET=<random-secret>
+## Optional env vars:
+##   APP_PORT=<host port to publish on, default 3001>
 
 services:
   app:
@@ -18,24 +24,8 @@ services:
       - DATABASE_URL=file:/app/data/holodeck.db
       - JWT_SECRET=${JWT_SECRET}
       - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME:-VCF 9 Holodeck Router (dev)}
-    expose:
-      - "3000"
-
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    command: caddy reverse-proxy --from ${DOMAIN:-localhost} --to app:3000 --internal-certs
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - app
+      - "${APP_PORT:-3001}:3000"
 
 volumes:
   app_data:
-  caddy_data:
-  caddy_config:

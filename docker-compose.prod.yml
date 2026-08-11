@@ -6,6 +6,12 @@
 ##
 ## Required env vars:
 ##   JWT_SECRET=<random-secret>
+##
+## Caddy (HTTPS reverse proxy) is OPTIONAL. By default the app is published
+## directly over HTTP on port 3000 and Caddy is not started at all.
+## To front it with Caddy + a real domain + TLS instead, set BOTH:
+##   DOMAIN=your.domain.here
+##   COMPOSE_PROFILES=caddy
 
 services:
   app:
@@ -17,10 +23,12 @@ services:
       - DATABASE_URL=file:/app/data/holodeck.db
       - JWT_SECRET=${JWT_SECRET}
       - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME:-VCF 9 Holodeck Router}
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
 
   caddy:
+    profiles:
+      - caddy
     image: caddy:2-alpine
     restart: unless-stopped
     command: caddy reverse-proxy --from ${DOMAIN:-localhost} --to app:3000 --internal-certs

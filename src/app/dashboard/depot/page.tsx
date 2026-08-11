@@ -16,12 +16,21 @@ function formatBytes(bytes: number): string {
 }
 
 // Expected components for a VCF install
+// VCF 9.1 decomposed SDDC Manager into separate microservice downloads and
+// dropped the standalone VRSLCM in favor of VCF_SDDC_LCM / VCF_FLEET_LCM.
 const EXPECTED_COMPONENTS: { key: string; label: string }[] = [
   { key: "ESX_HOST", label: "ESXi Host" },
   { key: "VCENTER", label: "vCenter Server" },
   { key: "SDDC_MANAGER_VCF", label: "SDDC Manager" },
   { key: "NSX_T_MANAGER", label: "NSX Manager" },
-  { key: "VRSLCM", label: "VCF Operations Lifecycle Manager" },
+  { key: "VCF_SDDC_LCM", label: "SDDC Lifecycle" },
+  { key: "VCF_FLEET_LCM", label: "Fleet Lifecycle" },
+  { key: "VIDB", label: "Identity Broker" },
+  { key: "VCF_LICENSE_SERVER", label: "License Server" },
+  { key: "VCF_SALT", label: "Salt Master" },
+  { key: "VCF_SALT_RAAS", label: "Salt RaaS" },
+  { key: "DEPOT_SERVICE", label: "Software Depot" },
+  { key: "VSP", label: "VCF Services Runtime" },
   { key: "VROPS", label: "VCF Operations (vROps)" },
   { key: "VRA", label: "VCF Automation (vRA)" },
   { key: "VCF_OPS_CLOUD_PROXY", label: "Operations Cloud Proxy" },

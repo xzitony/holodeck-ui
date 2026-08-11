@@ -8,6 +8,14 @@ const JWT_SECRET = new TextEncoder().encode(
 const JWT_EXPIRY = "24h";
 const COOKIE_NAME = "holodeck-token";
 
+export function isSecureRequest(request: Request): boolean {
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  if (forwardedProto) {
+    return forwardedProto.split(",")[0].trim() === "https";
+  }
+  return new URL(request.url).protocol === "https:";
+}
+
 export type UserRole = "superadmin" | "labadmin" | "user";
 
 export interface JWTPayload {

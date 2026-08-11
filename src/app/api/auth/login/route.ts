@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { verifyPassword, signToken, COOKIE_NAME, type UserRole } from "@/lib/auth";
+import { verifyPassword, signToken, isSecureRequest, COOKIE_NAME, type UserRole } from "@/lib/auth";
 import { loginSchema } from "@/lib/validators";
 
 export async function POST(request: Request) {
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isSecureRequest(request),
       sameSite: "strict",
       maxAge: 60 * 60 * 24, // 24 hours
       path: "/",

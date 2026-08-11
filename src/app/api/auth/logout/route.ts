@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
+import { isSecureRequest, COOKIE_NAME } from "@/lib/auth";
 
-const COOKIE_NAME = "holodeck-token";
-
-export async function POST() {
+export async function POST(request: Request) {
   const response = NextResponse.json({ success: true });
 
   response.cookies.set(COOKIE_NAME, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecureRequest(request),
     sameSite: "strict",
     maxAge: 0,
     path: "/",

@@ -7,6 +7,7 @@ interface BuildInfo {
   version: string;
   gitSha: string;
   buildTime: string;
+  channel: string;
   nodeVersion: string;
   hostname: string;
   environment: string;
@@ -49,7 +50,7 @@ export function BuildFooter() {
           <> · <span title="Git commit">{info.gitSha.substring(0, 7)}</span></>
         )}
         {" · "}
-        {info.environment}
+        {info.channel === "dev" ? "dev" : info.environment}
       </span>
       <span>
         {info.hostname}

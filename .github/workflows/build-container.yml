@@ -29,6 +29,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine build channel
+        id: channel
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "value=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=dev" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
@@ -50,3 +59,4 @@ jobs:
           build-args: |
             GIT_SHA=${{ github.sha }}
             BUILD_TIME=${{ github.event.head_commit.timestamp }}
+            BUILD_CHANNEL=${{ steps.channel.outputs.value }}

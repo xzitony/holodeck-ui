@@ -15,8 +15,10 @@ ENV DATABASE_URL="file:./prisma/dev.db"
 # Build-time metadata
 ARG GIT_SHA=""
 ARG BUILD_TIME=""
+ARG BUILD_CHANNEL="local"
 ENV NEXT_PUBLIC_GIT_SHA=${GIT_SHA}
 ENV NEXT_PUBLIC_BUILD_TIME=${BUILD_TIME}
+ENV NEXT_PUBLIC_BUILD_CHANNEL=${BUILD_CHANNEL}
 
 RUN npx prisma generate
 # Compile seed.ts → seed.js so the production container can run it without tsx

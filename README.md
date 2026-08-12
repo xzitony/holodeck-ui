@@ -1,8 +1,15 @@
 # Holodeck UI
 
-Holodeck UI is a web-based frontend management interface for VMware VCF 9 Holodeck. Provides a guided deployment wizard, Day 2 operations, PowerShell command execution, reservation scheduling, and user management — all driven through SSH to a holorouter VM.  The holorouter remains the "main source of truth" other than some caching of config files for loading commands faster and reducing ssh calls, no data is saved to the UI appliance.
+Holodeck UI is a web-based frontend management interface for VMware VCF 9 Holodeck, supporting Holodeck 9.0 and 9.1. Provides a guided deployment wizard, Day 2 operations, PowerShell command execution, reservation scheduling, and user management — all driven through SSH to a holorouter VM.  The holorouter remains the "main source of truth" other than some caching of config files for loading commands faster and reducing ssh calls, no data is saved to the UI appliance.
 
 This project is not associated with, endorsed by, or supported by Broadcom, VMware by Broadcom, or any of its other subsidiaries.
+
+## Recent Updates
+
+- **Holodeck 9.1 support** — `Import-HoloDeckConfig` now requires `-Site` in 9.1; every call site (deploy, Day 2 ops, config sync, command runner) was updated to pass it. The deploy wizard's version list is 9.0/9.1 only. The depot checklist's expected components were updated for 9.1's decomposed SDDC Manager microservices (identity broker, license server, salt, depot service, services runtime, SDDC/Fleet lifecycle in place of the old standalone VRSLCM).
+- **Holodeck Infrastructure dashboard section** (labadmin+ only) — convenience links to 9.1's new HoloRouter infra services (HashiCorp Vault, Authentik SSO, Technitium DNS), plus optional ESX host / vCenter links you can configure in Settings → Infrastructure URLs.
+- **Caddy is now optional** — both the production and dev Docker Compose files can publish the app directly over HTTP without a reverse proxy or TLS. See [Docker](#docker) below.
+- **`dev` branch + floating `:dev` image** — pushes to `dev` build `ghcr.io/xzitony/holodeck-ui:dev` for testing in a lab before cutting a real version tag. See [Dev Branch](#dev-branch-pre-release-testing).
 
 ## Prerequisites
 
@@ -19,7 +26,7 @@ Details about the Holodeck can be found at: [VMware by Broadcom - Holodeck Docum
 - **Email**: SMTP or Resend API (configurable per environment)
 - **Styling**: Tailwind CSS 4 with dark theme
 - **API Docs**: Swagger UI (OpenAPI 3.0)
-- **Deployment**: Docker + Caddy reverse proxy
+- **Deployment**: Docker, with an optional Caddy reverse proxy for TLS
 
 ## Features
 - **User Dashboard** — Quick access to deployed components based on instance deployment state(s)
@@ -30,7 +37,7 @@ Details about the Holodeck can be found at: [VMware by Broadcom - Holodeck Docum
 - **Live Output Monitoring** — Real-time background tmux with capture and auto-scroll for long running operations
 - **Role-Based Access** — Three roles: `user`, `labadmin`, `superadmin` with granular permissions
 - **Global Configuration** — Centralized SSH, ESXi, depot, and UI customization settings
-- **Environment Links** — Dynamic link dashboard with capability-aware conditional visibility
+- **Environment Links** — Dynamic link dashboard with capability-aware conditional visibility, plus a role-gated Holodeck Infrastructure section for 9.1's Vault/Authentik/DNS services and optional ESX host/vCenter links
 - **Email Notifications** — Reservation confirmations, deployment alerts, and reminders via SMTP or Resend API
 - **Audit Logging** — Full history of logins, commands, deployments, and reservations
 - **Advanced Troubleshooting** — Execute raw PowerShell commands with parameter forms, SSE streaming output
@@ -92,7 +99,7 @@ The container runs behind a Caddy reverse proxy on ports 80/443.
 
 ### Production (Docker Compose, Portainer Stack, etc.)
 
-A standalone `docker-compose.prod.yml` is provided for production deployments. It pulls a prebuilt image from GitHub Container Registry:
+A standalone `docker-compose.prod.yml` is provided for production deployments. It pulls a prebuilt image from GitHub Container Registry, and publishes the app **directly over HTTP on port 3000 by default** — no reverse proxy or TLS required:
 
 ```bash
 # Download the production compose file
@@ -100,11 +107,33 @@ curl -O https://raw.githubusercontent.com/xzitony/holodeck-ui/main/docker-compos
 
 # Set required env vars and deploy
 export JWT_SECRET="your-secret-key"
-export DOMAIN="holodeck.example.com"
 docker compose -f docker-compose.prod.yml up -d
 ```
 
 This file is also designed to be pasted directly into a **Portainer Stack** — just set the `JWT_SECRET` environment variable in the Portainer UI and deploy.
+
+To front it with Caddy + a real domain + TLS instead, set both `DOMAIN` and `COMPOSE_PROFILES=caddy`:
+
+```bash
+export JWT_SECRET="your-secret-key"
+export DOMAIN="holodeck.example.com"
+export COMPOSE_PROFILES="caddy"
+docker compose -f docker-compose.prod.yml up -d
+```
+
+The app's auth cookie automatically detects whether it's being served over HTTP or HTTPS (via `X-Forwarded-Proto` when behind Caddy) — no extra configuration needed either way.
+
+### Dev Branch (Pre-Release Testing)
+
+Pushes to the `dev` branch build a floating `ghcr.io/xzitony/holodeck-ui:dev` image via GitHub Actions, separate from tagged releases. `docker-compose.dev.yml` mirrors the production file but always runs Caddy-free, publishing directly over HTTP on a non-default port (`APP_PORT`, default `3001`) so it can run alongside a production stack on the same host:
+
+```bash
+curl -O https://raw.githubusercontent.com/xzitony/holodeck-ui/dev/docker-compose.dev.yml
+export JWT_SECRET="your-secret-key"
+docker compose -f docker-compose.dev.yml up -d
+```
+
+The footer of the app shows `dev` instead of `production` for images built off the `dev` branch, so it's obvious which channel you're running.
 
 ## Environment Variables
 
@@ -112,7 +141,9 @@ This file is also designed to be pasted directly into a **Portainer Stack** — 
 |----------|-------------|---------|
 | `DATABASE_URL` | SQLite database path | `file:/app/data/holodeck.db` |
 | `JWT_SECRET` | Secret key for JWT signing | (required) |
-| `DOMAIN` | Domain for Caddy TLS | `localhost` |
+| `DOMAIN` | Domain for Caddy TLS (only used if the `caddy` profile is enabled) | `localhost` |
+| `COMPOSE_PROFILES` | Set to `caddy` to enable the Caddy reverse proxy (prod compose only — dev compose never runs it) | unset (no Caddy, direct HTTP) |
+| `APP_PORT` | Host port to publish on (`docker-compose.dev.yml` only) | `3001` |
 
 SSH, deployment, and SMTP email settings are configured through the Global Config page in the UI, not environment variables.
 

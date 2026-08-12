@@ -249,6 +249,33 @@
           "conditions": { "requiresSiteB": true, "requiresWorkloadDomain": true }
         }
       ]
+    },
+    {
+      "label": "Holodeck Infrastructure",
+      "minRole": "labadmin",
+      "links": [
+        {
+          "name": "HashiCorp Vault",
+          "description": "Integrated secrets management service. Automatically provisions certificates for all services.",
+          "url": "https://{{holorouterHost}}:8200",
+          "username": "root token: VMware123!VMware123!",
+          "conditions": {}
+        },
+        {
+          "name": "Authentik SSO",
+          "description": "Modern identity provider with single sign-on capabilities. Supports SCIM for automated user provisioning.",
+          "url": "https://{{holorouterHost}}:9443",
+          "username": "admin / VMware123!VMware123!",
+          "conditions": {}
+        },
+        {
+          "name": "Technitium DNS",
+          "description": "Advanced DNS server with enhanced features. Improved DNS performance and caching capabilities.",
+          "url": "https://{{holorouterHost}}:5380",
+          "username": "admin / VMware123!VMware123!",
+          "conditions": {}
+        }
+      ]
     }
   ]
 }

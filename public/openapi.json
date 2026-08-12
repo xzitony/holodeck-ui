@@ -464,6 +464,7 @@
                     "version": { "type": "string" },
                     "gitSha": { "type": "string" },
                     "buildTime": { "type": "string" },
+                    "channel": { "type": "string", "description": "Build channel: \"release\", \"dev\", or \"local\"" },
                     "nodeVersion": { "type": "string" },
                     "hostname": { "type": "string" },
                     "environment": { "type": "string" },

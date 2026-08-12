@@ -60,6 +60,8 @@ async function main() {
     { key: "esx_host", value: "", description: "ESXi/vCenter hostname", sensitive: false },
     { key: "esx_username", value: "", description: "ESXi/vCenter username", sensitive: false },
     { key: "esx_password", value: "", description: "ESXi/vCenter password", sensitive: true },
+    { key: "infra_esx_ip", value: "", description: "IP of the ESXi host running Holodeck (optional convenience link)", sensitive: false },
+    { key: "infra_vcenter_ip", value: "", description: "IP of the vCenter managing that host, if used (optional convenience link)", sensitive: false },
     { key: "datastore_name", value: "", description: "Target datastore for deployments", sensitive: false },
     { key: "trunk_port_group_name_site_a", value: "", description: "Trunk port group name on ESXi (Site A)", sensitive: false },
     { key: "trunk_port_group_name_site_b", value: "", description: "Trunk port group name on ESXi (Site B)", sensitive: false },

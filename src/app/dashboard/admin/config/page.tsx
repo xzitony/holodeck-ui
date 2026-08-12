@@ -25,6 +25,10 @@ const configGroups = [
     keys: ["depot_ssh_port", "depot_ssh_username", "depot_ssh_password"],
   },
   {
+    label: "Infrastructure URLs (optional)",
+    keys: ["infra_esx_ip", "infra_vcenter_ip"],
+  },
+  {
     label: "UI Customization",
     keys: [
       "ui_app_title",
@@ -52,6 +56,8 @@ const friendlyLabels: Record<string, string> = {
   depot_ssh_port: "Depot appliance SSH port",
   depot_ssh_username: "Depot appliance SSH username",
   depot_ssh_password: "Depot appliance SSH password",
+  infra_esx_ip: "ESX host IP (running Holodeck)",
+  infra_vcenter_ip: "vCenter IP (optional)",
   ui_app_title: "Application title in sidebar",
   ui_app_subtitle: "Subtitle below app title",
   ui_logo_url: "Logo image URL (displayed in sidebar)",

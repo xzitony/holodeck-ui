@@ -55,9 +55,12 @@ export async function reconcileRunningJobs(): Promise<void> {
       const alive = await isTmuxSessionAlive(job.sessionName);
       if (alive) continue;
 
-      // Session is dead — save log and mark completed
+      // Session is dead — save log and mark completed. remain-on-exit keeps the
+      // tmux session around after the command exits, so it must be killed once
+      // its output has been captured or it accumulates for the host's lifetime.
       const completedAt = new Date();
       const logFile = await saveJobLog(job.id, job.sessionName);
+      await killTmuxSession(job.sessionName);
 
       await prisma.backgroundJob.update({
         where: { id: job.id },

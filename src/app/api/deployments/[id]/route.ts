@@ -75,6 +75,7 @@ export async function GET(
     if (!alive) {
       const now = new Date();
       const logFile = await saveDeploymentLog(id, job.sessionName);
+      await killTmuxSession(job.sessionName);
       await prisma.backgroundJob.update({
         where: { id },
         data: {

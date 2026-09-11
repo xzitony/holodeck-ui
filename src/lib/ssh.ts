@@ -1,5 +1,8 @@
 import { Client, type ConnectConfig } from "ssh2";
 import { exec } from "child_process";
+import { createHash } from "crypto";
+import os from "os";
+import path from "path";
 import { prisma } from "./db";
 
 interface SSHConfig {
@@ -178,6 +181,22 @@ function execLocal(cmd: string, timeoutMs = 15000): Promise<{ stdout: string; st
 }
 
 /**
+ * SSH options that multiplex every outgoing session over one shared transport
+ * per target, so N concurrent jobs cost the remote host one sshd fork instead
+ * of N. ControlPersist is required, not just an optimization: it detaches the
+ * master from the client that created it, so ending one job's session (or its
+ * tmux window) doesn't tear down the others sharing the socket.
+ */
+function multiplexOpts(cfg: SSHConfig): string {
+  const key = `${cfg.username}@${cfg.host}:${cfg.port || 22}`;
+  const socket = path.join(
+    os.tmpdir(),
+    `holodeck-ssh-${createHash("sha256").update(key).digest("hex").slice(0, 12)}`
+  );
+  return `-o ControlMaster=auto -o ControlPath='${socket}' -o ControlPersist=10m`;
+}
+
+/**
  * Build an sshpass/ssh command string to run a remote command on the holorouter.
  * The resulting command can be run locally (e.g. inside a local tmux session).
  */
@@ -190,7 +209,10 @@ async function buildSSHCommand(remoteCommand: string): Promise<string> {
   // Force terminal size on the remote end so PowerShell doesn't complain about ListView
   const sizedCommand = `stty cols 200 rows 50 2>/dev/null; ${remoteCommand}`;
   const port = sshConfig.port || 22;
-  const sshOpts = `-tt -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -p ${port}`;
+  // Keepalives let the holorouter reap sessions whose local end vanished
+  // (host reboot, killed tmux); tolerance is ~3min so a network blip doesn't
+  // kill an in-flight deployment.
+  const sshOpts = `-tt -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ServerAliveInterval=30 -o ServerAliveCountMax=6 ${multiplexOpts(sshConfig)} -p ${port}`;
 
   if (sshConfig.password) {
     // Use sshpass for password-based auth
@@ -360,7 +382,7 @@ async function getDepotSSHConfig(): Promise<SSHConfig | null> {
 
 function buildSSHCommandFromConfig(cfg: SSHConfig, remoteCommand: string): string {
   const port = cfg.port || 22;
-  const sshOpts = `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 -p ${port}`;
+  const sshOpts = `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 ${multiplexOpts(cfg)} -p ${port}`;
   const escaped = remoteCommand.replace(/'/g, "'\\''");
   if (cfg.password) {
     const escapedPass = cfg.password.replace(/'/g, "'\\''");
